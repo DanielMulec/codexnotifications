@@ -10,7 +10,7 @@ Status:
 
 - Analysis complete
 - Acceptance criteria complete
-- Implementation not started
+- Core implementation created (needs runtime validation pass)
 
 Existing docs:
 
@@ -18,12 +18,13 @@ Existing docs:
 - `docs/notifications-skill-v1-implementation-plan.md`
 - `docs/README.md`
 
-No implementation artifacts exist yet for:
+Implementation artifacts now present:
 
-- skill directory and `SKILL.md`
-- notify handler script
-- config mutation scripts
-- tests
+- `.agents/skills/notifications/SKILL.md`
+- `.agents/skills/notifications/agents/openai.yaml`
+- `.agents/skills/notifications/scripts/notifications_ctl.py`
+- `.agents/skills/notifications/scripts/notify_event.py`
+- `tests/test_notifications_ctl.py`
 
 ## 3. Product Decisions Already Locked
 
@@ -47,15 +48,17 @@ No implementation artifacts exist yet for:
 
 ## 5. Open Questions for Implementation Session
 
-Before coding, resolve:
+Remaining open items after initial coding pass:
 
-1. Canonical global skill install path in current Codex build (`~/.codex/skills` vs other conventions).
-2. Exact snapshot persistence location/mechanism for restore-on-off behavior.
-3. Minimal external dependencies for notify script across macOS/Linux/Windows.
+1. Validate runtime behavior matrix manually across representative terminals/OS environments.
+2. Confirm external packaging/install workflow for users outside this repository.
+3. Decide whether strict-mode v2 scoping should begin immediately after v1 validation.
 
-If unresolved, proceed with:
+Resolved assumptions in this repo:
 
-- local project implementation and explicit assumptions in code comments/docs.
+- Skill lookup path supports global (`${CODEX_HOME:-$HOME/.codex}/skills/notifications`) with local project fallback.
+- Snapshot persistence uses adjacent file next to target config (`.codex-notifications-v1-snapshot.json` by default).
+- Notify script uses host-native commands with BEL fallback and no hard dependency install.
 
 ## 6. Successor Execution Checklist
 
@@ -67,7 +70,7 @@ If unresolved, proceed with:
 
 ### B. Build
 
-- Implement Phase 1 through Phase 5 from `notifications-skill-v1-implementation-plan.md`.
+- Extend tests and runtime checks from current baseline implementation.
 
 ### C. Verify
 

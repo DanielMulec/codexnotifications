@@ -2,13 +2,14 @@
 
 ## Current Status
 
-Project phase: analysis and planning complete, implementation not started.
+Project phase: v1 core implementation started and committed in-repo.
 
 As of 2026-02-22:
 
 - v1 scope and acceptance criteria are defined.
 - implementation sequencing is defined.
 - handoff material for successor Codex sessions is defined.
+- skill skeleton, control script, notify hook script, and baseline tests now exist.
 
 ## Read Order
 
@@ -23,13 +24,15 @@ Exists:
 - acceptance criteria and behavior matrix
 - sandbox and config constraints
 - reference-backed architecture direction
+- skill entrypoint and trigger contract (`.agents/skills/notifications/SKILL.md`)
+- config mutation engine (`.agents/skills/notifications/scripts/notifications_ctl.py`)
+- notify hook script (`.agents/skills/notifications/scripts/notify_event.py`)
+- automated baseline tests (`tests/test_notifications_ctl.py`)
 
 Missing (next phase):
 
-- actual skill implementation
-- notify hook script implementation
-- automated tests and test harness
 - packaging/install workflow for external users
+- full manual runtime matrix evidence across terminals/OS variants
 
 ## Quick Resume Checklist
 
