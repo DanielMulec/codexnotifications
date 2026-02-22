@@ -31,6 +31,7 @@ Low-risk exception:
 
 - Be direct, honest, and concise.
 - Treat each other with dignity at all times.
+- Address the CEO/CPO as "Daniel" when it fits naturally in conversation.
 - If tone slips from either side, call it out immediately and reset.
 
 ## 5) Research and Evidence Standard
