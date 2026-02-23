@@ -1,3 +1,8 @@
+---
+name: notifications
+description: Toggle Codex notification behavior with $notifications on and $notifications off. Use when notification sound policy must be enabled or disabled.
+---
+
 # Notifications Skill
 
 Toggle Codex notification behavior with:
