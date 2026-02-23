@@ -73,6 +73,18 @@ def parse_payload(raw_payload: str) -> dict[str, object] | None:
     return payload
 
 
+def event_type(payload: dict[str, object]) -> str | None:
+    event_value = payload.get("type")
+    if isinstance(event_value, str):
+        return event_value
+
+    legacy_value = payload.get("event")
+    if isinstance(legacy_value, str):
+        return legacy_value
+
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
     args = argv if argv is not None else sys.argv
     if len(args) < 2:
@@ -83,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
     if payload is None:
         return 0
 
-    if payload.get("event") != SUPPORTED_EVENT:
+    if event_type(payload) != SUPPORTED_EVENT:
         return 0
 
     if not try_play_sound():
