@@ -13,9 +13,10 @@ As of 2026-02-22:
 
 ## Read Order
 
-1. `docs/notifications-skill-v1-acceptance-spec.md`
-2. `docs/notifications-skill-v1-implementation-plan.md`
-3. `docs/notifications-skill-v1-successor-handoff.md`
+1. `docs/notifications-noob-start-here.md`
+2. `docs/notifications-skill-v1-acceptance-spec.md`
+3. `docs/notifications-skill-v1-implementation-plan.md`
+4. `docs/notifications-skill-v1-successor-handoff.md`
 
 ## What Exists vs Missing
 
@@ -24,6 +25,7 @@ Exists:
 - acceptance criteria and behavior matrix
 - sandbox and config constraints
 - reference-backed architecture direction
+- beginner-oriented walkthrough for on/off behavior (`docs/notifications-noob-start-here.md`)
 - skill entrypoint and trigger contract (`.agents/skills/notifications/SKILL.md`)
 - config mutation engine (`.agents/skills/notifications/scripts/notifications_ctl.py`)
 - notify hook script (`.agents/skills/notifications/scripts/notify_event.py`)
