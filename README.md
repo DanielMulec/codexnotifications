@@ -1,40 +1,138 @@
-# codexnotifications
+# Notifications Skill for Codex CLI
 
-Planning and implementation repository for a global Codex notifications skill.
+Turn Codex CLI notification sounds on or off with:
 
-Primary goal:
+- `$notifications on`
+- `$notifications off`
 
-- provide `$notifications on` and `$notifications off` skill commands
-- enable reliable completion notifications and approval-request notification coverage
-- keep behavior graceful across macOS/Linux/Windows and common terminal setups
+This repository ships a production-ready global skill that configures Codex notifications with safe state handling and clean rollback behavior.
 
-Current implementation artifacts:
+## What This Skill Is About
+
+The `notifications` skill adds a simple user-facing switch for completion sounds and approval-request coverage in Codex CLI.
+
+Instead of hand-editing `config.toml`, you run one command:
+
+- `$notifications on` to enable the policy
+- `$notifications off` to disable it
+
+## Why This Skill Exists
+
+Codex notification behavior can vary across environments. This skill standardizes setup and avoids fragile manual config edits.
+
+It is designed to:
+
+- keep behavior consistent across macOS, Linux, and Windows
+- preserve and restore prior user notification settings using a snapshot
+- keep commands idempotent (`on` + `on`, `off` + `off` are safe)
+- return structured status output for clear troubleshooting
+
+## What Happens Under the Hood
+
+When enabled, the skill updates global Codex config to use the bundled notify hook and approval-request sound settings.
+
+When disabled, it restores prior values from snapshot when available, or applies a safe fallback that only removes skill-managed overrides.
+
+Core files:
 
 - `.agents/skills/notifications/SKILL.md`
 - `.agents/skills/notifications/scripts/notifications_ctl.py`
 - `.agents/skills/notifications/scripts/notifications_state.py`
 - `.agents/skills/notifications/scripts/notify_event.py`
-- `tests/test_notifications_ctl.py`
-- `tests/test_notifications_state.py`
 
-Install Python dependency:
+## Requirements
+
+- Codex CLI (with skills support)
+- Python 3
+- Python package `tomlkit` in the same Python environment used by `python3`
+
+Install dependency:
 
 ```bash
-python3 -m pip install -r requirements.txt
+python3 -m pip install --user tomlkit
 ```
 
-Install/uninstall guide for external users:
+If your Python is externally managed (PEP 668), use:
+
+```bash
+python3 -m pip install --user --break-system-packages tomlkit
+```
+
+Windows PowerShell:
+
+```powershell
+py -m pip install --user tomlkit
+```
+
+## Install in Codex CLI
+
+### Option A (Recommended): `$skill-installer`
+
+Inside Codex, install from:
+
+- repo: `DanielMulec/codexnotifications`
+- path: `.agents/skills/notifications`
+
+Then restart Codex CLI.
+
+### Option B: Manual copy
+
+1. Clone this repository.
+2. Copy `.agents/skills/notifications` to `${CODEX_HOME:-$HOME/.codex}/skills/notifications`.
+3. Restart Codex CLI.
+
+## Quick Start
+
+After install and restart:
+
+```text
+$notifications on
+$notifications off
+```
+
+You can also verify the script directly:
+
+```bash
+SCRIPT_PATH="${CODEX_HOME:-$HOME/.codex}/skills/notifications/scripts/notifications_ctl.py"
+python3 "$SCRIPT_PATH" --help
+```
+
+Expected JSON includes:
+
+- `"status": "invalid-input"`
+- `"next_action": "Usage: $notifications on|off"`
+
+## Troubleshooting
+
+- No sound after `$notifications on`:
+  restart Codex CLI and try again.
+- Write blocked / permission errors:
+  allow writes to your global Codex config directory (`${CODEX_HOME:-$HOME/.codex}`) or rerun with the required policy/permissions.
+- `tomlkit` dependency error:
+  install `tomlkit` in the same interpreter used by `python3`.
+
+## Uninstall / Rollback
+
+For safe uninstall (including `off` first, then folder removal), use:
 
 - `INSTALL.md`
 
-Run tests:
+## Quality and Verification
+
+Run tests locally:
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
 
-Start with docs:
+## More Documentation
 
+- `INSTALL.md`
 - `docs/README.md`
 - `docs/notifications-noob-start-here.md`
 - `docs/notifications-skill-v1-acceptance-spec.md`
+
+## Contact
+
+- LinkedIn: `linkedin.com/in/dmulec`
+- X: `x.com/danielmulec`
