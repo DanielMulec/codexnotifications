@@ -16,6 +16,9 @@ import tomlkit
 from tomlkit.toml_document import TOMLDocument
 
 SNAPSHOT_FILENAME = ".codex-notifications-v1-snapshot.json"
+SKILL_NOTIFY_COMMAND = "python3"
+TARGET_TUI_NOTIFICATIONS = ("approval-requested",)
+TARGET_TUI_NOTIFICATION_METHOD = "bel"
 
 
 def is_permission_block(exc: BaseException) -> bool:
@@ -61,6 +64,7 @@ def prepare_config_directory(config_path: Path) -> tuple[bool, str | None]:
 
     probe_path: Path | None = None
     try:
+        # Probe writes fail fast when sandbox rules or permissions block mutations.
         fd, raw_path = tempfile.mkstemp(
             prefix=".codexnotifications-write-probe-",
             dir=parent,
@@ -104,6 +108,7 @@ def atomic_write_text(path: Path, content: str) -> None:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(content)
             handle.flush()
+            # fsync + replace avoids half-written files if the process exits mid-write.
             os.fsync(handle.fileno())
 
         if path.exists():
@@ -209,7 +214,7 @@ def normalized_path(path_value: str) -> str:
 
 
 def notify_target_value(notify_script_path: Path) -> list[str]:
-    return ["python3", str(notify_script_path)]
+    return [SKILL_NOTIFY_COMMAND, str(notify_script_path)]
 
 
 def is_skill_notify_value(value: Any, notify_script_path: Path) -> bool:
@@ -218,7 +223,7 @@ def is_skill_notify_value(value: Any, notify_script_path: Path) -> bool:
         return False
 
     command, script_path = unwrapped
-    if command != "python3" or not isinstance(script_path, str):
+    if command != SKILL_NOTIFY_COMMAND or not isinstance(script_path, str):
         return False
 
     try:
@@ -235,8 +240,9 @@ def is_target_on(document: TOMLDocument, notify_script_path: Path) -> bool:
 
     return (
         notify_ok
-        and _unwrap_value(tui.get("notifications")) == ["approval-requested"]
-        and _unwrap_value(tui.get("notification_method")) == "bel"
+        and _unwrap_value(tui.get("notifications")) == list(TARGET_TUI_NOTIFICATIONS)
+        and _unwrap_value(tui.get("notification_method"))
+        == TARGET_TUI_NOTIFICATION_METHOD
     )
 
 
@@ -254,12 +260,13 @@ def apply_on_state(document: TOMLDocument, notify_script_path: Path) -> bool:
         document["tui"] = tui
         changed = True
 
-    if _unwrap_value(tui.get("notifications")) != ["approval-requested"]:
-        tui["notifications"] = ["approval-requested"]
+    target_notifications = list(TARGET_TUI_NOTIFICATIONS)
+    if _unwrap_value(tui.get("notifications")) != target_notifications:
+        tui["notifications"] = target_notifications
         changed = True
 
-    if _unwrap_value(tui.get("notification_method")) != "bel":
-        tui["notification_method"] = "bel"
+    if _unwrap_value(tui.get("notification_method")) != TARGET_TUI_NOTIFICATION_METHOD:
+        tui["notification_method"] = TARGET_TUI_NOTIFICATION_METHOD
         changed = True
 
     return changed
@@ -290,6 +297,7 @@ def restore_tui_key(
 
 
 def apply_snapshot_restore(document: TOMLDocument, prior_state: dict[str, Any]) -> bool:
+    # Serialize before/after so callers can keep a strict idempotency contract.
     before = tomlkit.dumps(document)
 
     restore_key(document, "notify", prior_state.get("notify"))
@@ -320,8 +328,10 @@ def apply_safe_off_without_snapshot(
         notifications = _unwrap_value(tui.get("notifications"))
         notification_method = _unwrap_value(tui.get("notification_method"))
         skill_approval_override = (
-            notifications == ["approval-requested"] and notification_method == "bel"
+            notifications == list(TARGET_TUI_NOTIFICATIONS)
+            and notification_method == TARGET_TUI_NOTIFICATION_METHOD
         )
+        # Without a snapshot, only disable the exact skill override and leave custom values alone.
         if (skill_notify or skill_approval_override) and notifications is not False:
             tui["notifications"] = False
             changed = True

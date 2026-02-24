@@ -76,6 +76,17 @@ def failed_result(action: str, reason: str) -> dict[str, str]:
     )
 
 
+def result_from_exception(
+    action: str,
+    exc: BaseException,
+    blocked_reason_prefix: str,
+    failed_reason_prefix: str,
+) -> dict[str, str]:
+    if is_permission_block(exc):
+        return blocked_result(action, f"{blocked_reason_prefix}: {exc}")
+    return failed_result(action, f"{failed_reason_prefix}: {exc}")
+
+
 def execute_on(document, config_path, snapshot_path, notify_script_path) -> dict[str, str]:
     action = "$notifications on"
 
@@ -93,13 +104,17 @@ def execute_on(document, config_path, snapshot_path, notify_script_path) -> dict
         write_snapshot(snapshot_path, config_path, prior_state)
         write_toml_document(config_path, document)
     except BaseException as exc:
+        # If writes fail, remove the new snapshot so we do not advertise a restorable state.
         try:
             remove_snapshot(snapshot_path)
         except OSError:
             pass
-        if is_permission_block(exc):
-            return blocked_result(action, f"Global config write blocked: {exc}")
-        return failed_result(action, f"Failed to apply notifications on: {exc}")
+        return result_from_exception(
+            action=action,
+            exc=exc,
+            blocked_reason_prefix="Global config write blocked",
+            failed_reason_prefix="Failed to apply notifications on",
+        )
 
     return build_result(
         action=action,
@@ -117,6 +132,7 @@ def execute_off(
     action = "$notifications off"
 
     prior_state, snapshot_warning = load_snapshot(snapshot_path)
+    # Keep snapshot read errors visible while still attempting a safe "off" path.
     warning_suffix = f" ({snapshot_warning})" if snapshot_warning else ""
 
     if prior_state is not None:
@@ -126,9 +142,12 @@ def execute_off(
                 write_toml_document(config_path, document)
             remove_snapshot(snapshot_path)
         except BaseException as exc:
-            if is_permission_block(exc):
-                return blocked_result(action, f"Global config write blocked: {exc}")
-            return failed_result(action, f"Failed to apply notifications off: {exc}")
+            return result_from_exception(
+                action=action,
+                exc=exc,
+                blocked_reason_prefix="Global config write blocked",
+                failed_reason_prefix="Failed to apply notifications off",
+            )
 
         return build_result(
             action=action,
@@ -149,9 +168,12 @@ def execute_off(
     try:
         write_toml_document(config_path, document)
     except BaseException as exc:
-        if is_permission_block(exc):
-            return blocked_result(action, f"Global config write blocked: {exc}")
-        return failed_result(action, f"Failed to apply notifications off: {exc}")
+        return result_from_exception(
+            action=action,
+            exc=exc,
+            blocked_reason_prefix="Global config write blocked",
+            failed_reason_prefix="Failed to apply notifications off",
+        )
 
     return build_result(
         action=action,
@@ -196,9 +218,12 @@ def execute_command(
     try:
         document = load_toml_document(config_path)
     except BaseException as exc:
-        if is_permission_block(exc):
-            return blocked_result(action, f"Global config read blocked: {exc}")
-        return failed_result(action, f"Failed to parse config TOML: {exc}")
+        return result_from_exception(
+            action=action,
+            exc=exc,
+            blocked_reason_prefix="Global config read blocked",
+            failed_reason_prefix="Failed to parse config TOML",
+        )
 
     if command == "on":
         return execute_on(document, config_path, snapshot_path, notify_script_path)

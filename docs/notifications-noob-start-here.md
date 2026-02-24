@@ -23,6 +23,38 @@ Python dependency used by the state module:
 python3 -m pip install tomlkit
 ```
 
+## 1.1 Minimum Mental Model (No Python Knowledge Needed)
+
+You only need to remember one script path and three commands.
+
+```bash
+SCRIPT_PATH="${CODEX_HOME:-$HOME/.codex}/skills/notifications/scripts/notifications_ctl.py"
+```
+
+1. Turn policy on:
+
+```bash
+python3 "$SCRIPT_PATH" on
+```
+
+Expected outcome: JSON status is `applied` (first run) or `already-applied` (if already on).
+
+2. Turn policy off:
+
+```bash
+python3 "$SCRIPT_PATH" off
+```
+
+Expected outcome: JSON status is `applied` (changed something) or `already-applied` (already off).
+
+3. Validate command handling:
+
+```bash
+python3 "$SCRIPT_PATH" foo
+```
+
+Expected outcome: JSON status is `invalid-input` and `next_action` shows `Usage: $notifications on|off`.
+
 ## 2. Step-by-Step: `$notifications on`
 
 1. Command parser accepts only `on` or `off`.  
