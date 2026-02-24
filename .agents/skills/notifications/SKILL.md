@@ -82,3 +82,4 @@ For `status = failed`:
 
 - The control script handles config mutation, snapshot/restore, idempotency, and blocked-write messaging.
 - Do not perform manual config edits if the control script succeeds.
+- Runtime prerequisite: `tomlkit` must be installed for the Python interpreter that runs the skill script (`python3 -m pip install tomlkit`).

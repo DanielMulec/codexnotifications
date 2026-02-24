@@ -23,8 +23,10 @@ Implementation artifacts now present:
 - `.agents/skills/notifications/SKILL.md`
 - `.agents/skills/notifications/agents/openai.yaml`
 - `.agents/skills/notifications/scripts/notifications_ctl.py`
+- `.agents/skills/notifications/scripts/notifications_state.py`
 - `.agents/skills/notifications/scripts/notify_event.py`
 - `tests/test_notifications_ctl.py`
+- `tests/test_notifications_state.py`
 
 ## 3. Product Decisions Already Locked
 

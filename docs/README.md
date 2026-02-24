@@ -27,9 +27,10 @@ Exists:
 - reference-backed architecture direction
 - beginner-oriented walkthrough for on/off behavior (`docs/notifications-noob-start-here.md`)
 - skill entrypoint and trigger contract (`.agents/skills/notifications/SKILL.md`)
-- config mutation engine (`.agents/skills/notifications/scripts/notifications_ctl.py`)
+- CLI/orchestration script (`.agents/skills/notifications/scripts/notifications_ctl.py`)
+- config/state mutation module (`.agents/skills/notifications/scripts/notifications_state.py`)
 - notify hook script (`.agents/skills/notifications/scripts/notify_event.py`)
-- automated baseline tests (`tests/test_notifications_ctl.py`)
+- automated baseline tests (`tests/test_notifications_ctl.py`, `tests/test_notifications_state.py`)
 
 Missing (next phase):
 

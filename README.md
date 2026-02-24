@@ -12,8 +12,16 @@ Current implementation artifacts:
 
 - `.agents/skills/notifications/SKILL.md`
 - `.agents/skills/notifications/scripts/notifications_ctl.py`
+- `.agents/skills/notifications/scripts/notifications_state.py`
 - `.agents/skills/notifications/scripts/notify_event.py`
 - `tests/test_notifications_ctl.py`
+- `tests/test_notifications_state.py`
+
+Install Python dependency:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
 
 Run tests:
 

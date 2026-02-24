@@ -162,6 +162,80 @@ class NotificationsCtlTests(unittest.TestCase):
         self.assertIn("policy that permits", payload["next_action"])
         self.assertFalse(blocked_config_path.exists())
 
+    def test_failed_parse_returns_exit_code_4(self) -> None:
+        self.config_path.write_text("[broken\n", encoding="utf-8")
+
+        return_code, payload = self.run_ctl("on")
+        self.assertEqual(return_code, 4)
+        self.assertEqual(payload["status"], "failed")
+        self.assertIn("Failed to parse config TOML", payload["rationale"])
+
+    def test_off_with_malformed_snapshot_reports_warning_suffix(self) -> None:
+        return_code, payload = self.run_ctl("on")
+        self.assertEqual(return_code, 0)
+        self.assertEqual(payload["status"], "applied")
+
+        self.snapshot_path.write_text("{bad json", encoding="utf-8")
+
+        return_code, payload = self.run_ctl("off")
+        self.assertEqual(return_code, 0)
+        self.assertEqual(payload["status"], "applied")
+        self.assertIn("Snapshot format invalid", payload["rationale"])
+
+        return_code, payload = self.run_ctl("off")
+        self.assertEqual(return_code, 0)
+        self.assertEqual(payload["status"], "already-applied")
+        self.assertIn("Snapshot format invalid", payload["rationale"])
+
+    def test_unrelated_keys_preserved_across_on_off(self) -> None:
+        original_toml = (
+            'model = "gpt-5"\n'
+            'notify = ["python3", "/tmp/original_notify.py"]\n\n'
+            "[profiles]\n"
+            "default = \"dev\"\n\n"
+            "[profiles.dev]\n"
+            "temperature = 0.2\n\n"
+            "[tui]\n"
+            "notifications = true\n"
+            'notification_method = "auto"\n'
+        )
+        self.config_path.write_text(original_toml, encoding="utf-8")
+        expected_document = tomllib.loads(original_toml)
+
+        return_code, payload = self.run_ctl("on")
+        self.assertEqual(return_code, 0)
+        self.assertEqual(payload["status"], "applied")
+
+        return_code, payload = self.run_ctl("off")
+        self.assertEqual(return_code, 0)
+        self.assertEqual(payload["status"], "applied")
+
+        self.assertEqual(self.read_config(), expected_document)
+
+    def test_comments_preserved_across_on_off(self) -> None:
+        original_toml = (
+            "# user note: keep my model stable\n"
+            'model = "gpt-5"\n'
+            'notify = ["python3", "/tmp/original_notify.py"]\n\n'
+            "[tui]\n"
+            "# user note: I prefer auto mode\n"
+            "notifications = true\n"
+            'notification_method = "auto"\n'
+        )
+        self.config_path.write_text(original_toml, encoding="utf-8")
+
+        return_code, payload = self.run_ctl("on")
+        self.assertEqual(return_code, 0)
+        self.assertEqual(payload["status"], "applied")
+
+        return_code, payload = self.run_ctl("off")
+        self.assertEqual(return_code, 0)
+        self.assertEqual(payload["status"], "applied")
+
+        restored_text = self.config_path.read_text(encoding="utf-8")
+        self.assertIn("# user note: keep my model stable", restored_text)
+        self.assertIn("# user note: I prefer auto mode", restored_text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,14 +6,22 @@ It is written for early-stage Python/Codex users without assuming prior familiar
 
 ## 1. Quick Orientation
 
-The behavior is implemented by three files:
+The behavior is implemented by four files:
 
 1. `.agents/skills/notifications/scripts/notify_event.py`  
    Small runtime hook that plays sound for completion events.
-2. `tests/test_notifications_ctl.py`  
-   Concrete examples of expected behavior (`on`, `off`, idempotency, blocked write).
-3. `.agents/skills/notifications/scripts/notifications_ctl.py`  
-   Main control script that edits `config.toml`, snapshots prior state, and restores it.
+2. `tests/test_notifications_ctl.py` and `tests/test_notifications_state.py`  
+   Concrete examples of expected behavior (`on`, `off`, idempotency, blocked write, restore).
+3. `.agents/skills/notifications/scripts/notifications_state.py`  
+   Config/state logic (TOML load/write, snapshot capture/restore, mutation rules).
+4. `.agents/skills/notifications/scripts/notifications_ctl.py`  
+   CLI orchestration (argument parsing, status mapping, JSON output).
+
+Python dependency used by the state module:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
 
 ## 2. Step-by-Step: `$notifications on`
 
@@ -130,24 +138,35 @@ notifications = true
 notification_method = "auto"
 ```
 
-## 5. Function Map (notifications_ctl.py)
+## 5. Function Map (by file)
+
+### `notifications_ctl.py`
 
 | Function | Plain-English purpose |
 |---|---|
 | `build_result` | Build standard JSON result payload. |
 | `emit_result` | Print result payload as JSON. |
-| `is_permission_block` | Detect permission/sandbox write-read block errors. |
+| `blocked_result` | Build blocked result with remediation guidance. |
+| `failed_result` | Build generic failure result. |
+| `execute_on` | Orchestrate full `on` flow using state helpers. |
+| `execute_off` | Orchestrate full `off` flow using state helpers. |
+| `execute_command` | Route command + shared setup and error handling. |
+| `parse_args` | Parse CLI args and help flags. |
+| `exit_code_for_status` | Map status to process exit code. |
+| `main` | CLI entrypoint and top-level orchestration. |
+
+### `notifications_state.py`
+
+| Function | Plain-English purpose |
+|---|---|
+| `is_permission_block` | Detect permission/sandbox read-write block errors. |
 | `resolve_config_path` | Resolve global Codex config path. |
 | `resolve_snapshot_path` | Resolve snapshot file path. |
 | `resolve_notify_script_path` | Resolve absolute path to `notify_event.py`. |
 | `prepare_config_directory` | Ensure config directory exists and is writable. |
-| `load_toml_document` | Read and parse TOML into Python dict. |
-| `format_key` | Serialize a TOML key safely. |
-| `format_value` | Serialize a TOML value safely. |
-| `emit_table` | Recursively serialize TOML table sections. |
-| `dump_toml_document` | Convert full TOML dict back to TOML text. |
+| `load_toml_document` | Read and parse TOML into an editable document. |
 | `atomic_write_text` | Write file safely via temp file + replace. |
-| `write_toml_document` | Serialize and atomically write TOML config. |
+| `write_toml_document` | Persist edited TOML document atomically. |
 | `key_state` | Store key presence/value for snapshot data. |
 | `capture_prior_state` | Capture prior values before applying `on`. |
 | `write_snapshot` | Persist prior state to snapshot JSON file. |
@@ -162,14 +181,6 @@ notification_method = "auto"
 | `restore_tui_key` | Restore nested `[tui]` key from snapshot state. |
 | `apply_snapshot_restore` | Restore all tracked keys and report change. |
 | `apply_safe_off_without_snapshot` | Turn off skill-managed settings when snapshot is missing. |
-| `blocked_result` | Build blocked result with remediation guidance. |
-| `failed_result` | Build generic failure result. |
-| `execute_on` | Full `on` flow (snapshot + apply + write). |
-| `execute_off` | Full `off` flow (restore or safe fallback). |
-| `execute_command` | Route command + shared setup and error handling. |
-| `parse_args` | Parse CLI args and help flags. |
-| `exit_code_for_status` | Map status to process exit code. |
-| `main` | CLI entrypoint and top-level orchestration. |
 
 ## 6. Tiny Glossary
 
@@ -178,12 +189,15 @@ notification_method = "auto"
 - `Idempotent`: Running the same command again does not keep changing state.
 - `Snapshot`: Saved copy of previous key values so `off` can restore user settings.
 - `Sandbox block`: Environment policy prevented reading/writing the global config path.
+- `State`: The current config plus saved prior values used to decide what to change.
 
 ## 7. Recommended Reading Order
 
 1. `.agents/skills/notifications/scripts/notify_event.py`  
    Shortest file; easiest entry point.
-2. `tests/test_notifications_ctl.py`  
-   Shows expected behavior as executable examples.
-3. `.agents/skills/notifications/scripts/notifications_ctl.py`  
-   Read with test file open beside it.
+2. `tests/test_notifications_ctl.py` and `tests/test_notifications_state.py`  
+   Behavior examples first.
+3. `.agents/skills/notifications/scripts/notifications_state.py`  
+   Core mutation logic.
+4. `.agents/skills/notifications/scripts/notifications_ctl.py`  
+   CLI wrapper around the core logic.
