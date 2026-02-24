@@ -20,7 +20,7 @@ The behavior is implemented by four files:
 Python dependency used by the state module:
 
 ```bash
-python3 -m pip install -r requirements.txt
+python3 -m pip install tomlkit
 ```
 
 ## 2. Step-by-Step: `$notifications on`

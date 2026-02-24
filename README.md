@@ -23,6 +23,10 @@ Install Python dependency:
 python3 -m pip install -r requirements.txt
 ```
 
+Install/uninstall guide for external users:
+
+- `INSTALL.md`
+
 Run tests:
 
 ```bash

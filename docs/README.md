@@ -13,15 +13,17 @@ As of 2026-02-22:
 
 ## Read Order
 
-1. `docs/notifications-noob-start-here.md`
-2. `docs/notifications-skill-v1-acceptance-spec.md`
-3. `docs/notifications-skill-v1-implementation-plan.md`
-4. `docs/notifications-skill-v1-successor-handoff.md`
+1. `INSTALL.md`
+2. `docs/notifications-noob-start-here.md`
+3. `docs/notifications-skill-v1-acceptance-spec.md`
+4. `docs/notifications-skill-v1-implementation-plan.md`
+5. `docs/notifications-skill-v1-successor-handoff.md`
 
 ## What Exists vs Missing
 
 Exists:
 
+- install/uninstall workflow and dependency prerequisites (`INSTALL.md`)
 - acceptance criteria and behavior matrix
 - sandbox and config constraints
 - reference-backed architecture direction
@@ -34,7 +36,6 @@ Exists:
 
 Missing (next phase):
 
-- packaging/install workflow for external users
 - full manual runtime matrix evidence across terminals/OS variants
 
 ## Quick Resume Checklist

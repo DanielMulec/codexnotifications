@@ -60,7 +60,8 @@ Resolved assumptions in this repo:
 
 - Skill lookup path supports global (`${CODEX_HOME:-$HOME/.codex}/skills/notifications`) with local project fallback.
 - Snapshot persistence uses adjacent file next to target config (`.codex-notifications-v1-snapshot.json` by default).
-- Notify script uses host-native commands with BEL fallback and no hard dependency install.
+- Notify script uses host-native commands with BEL fallback.
+- Config mutation module requires `tomlkit` in the Python runtime used by the control script.
 
 ## 6. Successor Execution Checklist
 
