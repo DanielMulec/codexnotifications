@@ -128,9 +128,7 @@ python3 -m unittest discover -s tests -v
 ## More Documentation
 
 - `INSTALL.md`
-- `docs/README.md`
 - `docs/notifications-noob-start-here.md`
-- `docs/notifications-skill-v1-acceptance-spec.md`
 
 ## Contact
 
