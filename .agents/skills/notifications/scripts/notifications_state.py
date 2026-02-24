@@ -98,6 +98,10 @@ def prepare_config_directory(config_path: Path) -> tuple[bool, str | None]:
 def load_toml_document(path: Path) -> TOMLDocument:
     # Missing or empty config is treated as an empty document so "on" can
     # initialize settings without special caller logic.
+    # Step-by-step:
+    # 1) if file absent -> return empty TOML document
+    # 2) if file blank -> return empty TOML document
+    # 3) else parse and assert table root
     if not path.exists():
         return tomlkit.document()
 
@@ -121,6 +125,7 @@ def atomic_write_text(path: Path, content: str) -> None:
     fd, temp_raw = tempfile.mkstemp(prefix=f".{path.name}.tmp-", dir=path.parent)
     temp_path = Path(temp_raw)
     try:
+        # Write the new file content to temp path, not directly to destination.
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(content)
             handle.flush()
@@ -129,12 +134,17 @@ def atomic_write_text(path: Path, content: str) -> None:
 
         if path.exists():
             try:
+                # Preserve existing file mode when replacing an existing target.
                 os.chmod(temp_path, path.stat().st_mode & 0o777)
             except OSError:
                 pass
 
+        # Atomic rename: temp path becomes the final destination path.
+        # After this call succeeds, temp filename no longer exists.
         os.replace(temp_path, path)
     finally:
+        # If replacement did not happen (or failed), clean up temp artifact.
+        # This is best-effort; hard crashes can still leave temp files behind.
         if temp_path.exists():
             try:
                 temp_path.unlink()
@@ -167,12 +177,14 @@ def key_state(value_present: bool, value: Any | None = None) -> dict[str, Any]:
     # Snapshot format stores both key presence and value to distinguish
     # "key absent" from "key present with false/empty value".
     if value_present:
+        # Deep-copy avoids accidental mutation after snapshot capture.
         return {"present": True, "value": copy.deepcopy(_unwrap_value(value))}
     return {"present": False}
 
 
 def capture_prior_state(document: TOMLDocument) -> dict[str, Any]:
     # Capture only keys this skill may mutate so restore is focused and safe.
+    # This intentionally ignores unrelated config keys.
     prior: dict[str, Any] = {}
     prior["notify"] = key_state("notify" in document, document.get("notify"))
 
@@ -195,6 +207,11 @@ def write_snapshot(
     snapshot_path: Path, config_path: Path, prior_state: dict[str, Any]
 ) -> None:
     # Snapshot is JSON for easy debugging and compatibility with tooling.
+    # Stored fields:
+    # - version: schema marker
+    # - created_at: audit/debug timestamp
+    # - config_path: target config this snapshot belongs to
+    # - prior: captured values for restore
     payload = {
         "version": 1,
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
@@ -213,6 +230,8 @@ def load_snapshot(snapshot_path: Path) -> tuple[dict[str, Any] | None, str | Non
         return None, None
 
     try:
+        # Read raw snapshot text first so parse and schema errors can be
+        # reported separately.
         raw = snapshot_path.read_text(encoding="utf-8")
     except OSError as exc:
         return None, f"Snapshot read failed: {exc}"
@@ -223,10 +242,12 @@ def load_snapshot(snapshot_path: Path) -> tuple[dict[str, Any] | None, str | Non
         return None, f"Snapshot format invalid: {exc}"
 
     if not isinstance(payload, dict):
+        # Require object root to avoid ambiguous/unsafe payload handling.
         return None, "Snapshot format invalid: root is not an object"
 
     prior = payload.get("prior")
     if not isinstance(prior, dict):
+        # Restore code relies on a dict of key-state entries.
         return None, "Snapshot format invalid: missing 'prior' object"
 
     return prior, None
@@ -258,6 +279,7 @@ def is_skill_notify_value(value: Any, notify_script_path: Path) -> bool:
         return False
 
     try:
+        # Compare normalized absolute paths so equivalent inputs match.
         return normalized_path(script_path) == str(notify_script_path)
     except OSError:
         return False
@@ -265,6 +287,7 @@ def is_skill_notify_value(value: Any, notify_script_path: Path) -> bool:
 
 def is_target_on(document: TOMLDocument, notify_script_path: Path) -> bool:
     # Detect full "on" state across all controlled keys.
+    # All managed keys must match, not just one key.
     notify_ok = is_skill_notify_value(document.get("notify"), notify_script_path)
     tui = document.get("tui")
     if not isinstance(tui, dict):
@@ -285,6 +308,7 @@ def apply_on_state(document: TOMLDocument, notify_script_path: Path) -> bool:
 
     target_notify = notify_target_value(notify_script_path)
     if _unwrap_value(document.get("notify")) != target_notify:
+        # Update notify command to point to this skill's hook script.
         document["notify"] = target_notify
         changed = True
 
@@ -297,10 +321,12 @@ def apply_on_state(document: TOMLDocument, notify_script_path: Path) -> bool:
 
     target_notifications = list(TARGET_TUI_NOTIFICATIONS)
     if _unwrap_value(tui.get("notifications")) != target_notifications:
+        # Enable approval-requested notifications in TUI policy.
         tui["notifications"] = target_notifications
         changed = True
 
     if _unwrap_value(tui.get("notification_method")) != TARGET_TUI_NOTIFICATION_METHOD:
+        # Choose terminal bell as configured notification method.
         tui["notification_method"] = TARGET_TUI_NOTIFICATION_METHOD
         changed = True
 
@@ -310,8 +336,10 @@ def apply_on_state(document: TOMLDocument, notify_script_path: Path) -> bool:
 def restore_key(document: TOMLDocument, key: str, state: dict[str, Any] | None) -> None:
     # Restore top-level key to previous value or remove if previously absent.
     if state and state.get("present"):
+        # Recreate prior value exactly when key existed before.
         document[key] = copy.deepcopy(state.get("value"))
     else:
+        # Remove key when prior state says it was absent.
         document.pop(key, None)
 
 
@@ -337,6 +365,8 @@ def restore_tui_key(
 
 def apply_snapshot_restore(document: TOMLDocument, prior_state: dict[str, Any]) -> bool:
     # Serialize before/after so callers can keep a strict idempotency contract.
+    # We compare full document text because multiple nested key operations happen
+    # and a single boolean from each helper is harder to compose safely.
     before = tomlkit.dumps(document)
 
     restore_key(document, "notify", prior_state.get("notify"))
@@ -362,6 +392,7 @@ def apply_safe_off_without_snapshot(
     notify_value = document.get("notify")
     skill_notify = is_skill_notify_value(notify_value, notify_script_path)
     if skill_notify:
+        # Remove notify hook only if it matches this skill's exact command.
         document.pop("notify", None)
         changed = True
 
@@ -374,6 +405,7 @@ def apply_safe_off_without_snapshot(
             and notification_method == TARGET_TUI_NOTIFICATION_METHOD
         )
         # Without a snapshot, only disable the exact skill override and leave custom values alone.
+        # We also skip writing if notifications is already False to preserve idempotency.
         if (skill_notify or skill_approval_override) and notifications is not False:
             tui["notifications"] = False
             changed = True

@@ -46,6 +46,10 @@ def build_result(
     action: str, status: str, rationale: str, next_action: str = ""
 ) -> dict[str, str]:
     # Unified response shape used by all command outcomes.
+    # - action: which user command path produced this
+    # - status: machine-consumable state bucket
+    # - rationale: concise human explanation
+    # - next_action: remediation guidance when needed
     return {
         "action": action,
         "status": status,
@@ -61,6 +65,8 @@ def emit_result(result: dict[str, str]) -> None:
 
 def blocked_result(action: str, reason: str) -> dict[str, str]:
     # "blocked" means policy/permissions prevented touching global config.
+    # This is intentionally different from "failed": user can often fix blocked
+    # by adjusting sandbox policy or writable roots.
     return build_result(
         action=action,
         status=STATUS_BLOCKED,
@@ -74,6 +80,7 @@ def blocked_result(action: str, reason: str) -> dict[str, str]:
 
 def failed_result(action: str, reason: str) -> dict[str, str]:
     # "failed" means an unexpected runtime or data error (not policy block).
+    # This usually needs config/data correction rather than sandbox changes.
     return build_result(
         action=action,
         status=STATUS_FAILED,
@@ -90,6 +97,9 @@ def result_from_exception(
 ) -> dict[str, str]:
     # One place to map exceptions into user-facing status buckets.
     # This keeps error wording consistent across on/off/read/write paths.
+    # Decision rule:
+    # 1) permission/sandbox exception -> blocked
+    # 2) anything else -> failed
     if is_permission_block(exc):
         return blocked_result(action, f"{blocked_reason_prefix}: {exc}")
     return failed_result(action, f"{failed_reason_prefix}: {exc}")
@@ -102,6 +112,7 @@ def execute_on(document, config_path, snapshot_path, notify_script_path) -> dict
     # 3) apply target values + persist
     action = "$notifications on"
 
+    # Fast path: no mutation/no writes when already at target state.
     if is_target_on(document, notify_script_path):
         return build_result(
             action=action,
@@ -110,14 +121,19 @@ def execute_on(document, config_path, snapshot_path, notify_script_path) -> dict
         )
 
     prior_state = capture_prior_state(document)
+    # Mutation happens in-memory first so we only touch disk once the new
+    # state is fully prepared.
     apply_on_state(document, notify_script_path)
 
     try:
         # Snapshot is written before config mutation so "off" has restore data.
         write_snapshot(snapshot_path, config_path, prior_state)
+        # If this write succeeds, config and snapshot now represent one coherent state.
         write_toml_document(config_path, document)
     except BaseException as exc:
         # If writes fail, remove the new snapshot so we do not advertise a restorable state.
+        # Cleanup is best-effort because a secondary cleanup failure should not hide
+        # the original write failure reason.
         try:
             remove_snapshot(snapshot_path)
         except OSError:
@@ -147,6 +163,9 @@ def execute_off(
     # values this skill controls.
     action = "$notifications off"
 
+    # load_snapshot returns either:
+    # - prior_state dict (valid snapshot), or
+    # - None with optional warning string (missing/broken snapshot)
     prior_state, snapshot_warning = load_snapshot(snapshot_path)
     # Keep snapshot read errors visible while still attempting a safe "off" path.
     warning_suffix = f" ({snapshot_warning})" if snapshot_warning else ""
@@ -155,8 +174,11 @@ def execute_off(
         # Snapshot restore path: put prior values back exactly as captured.
         changed = apply_snapshot_restore(document, prior_state)
         try:
+            # Skip write when restore produced no diff to preserve idempotency and
+            # avoid unnecessary file churn.
             if changed:
                 write_toml_document(config_path, document)
+            # Snapshot is single-use: remove after restore attempt.
             remove_snapshot(snapshot_path)
         except BaseException as exc:
             return result_from_exception(
@@ -184,6 +206,7 @@ def execute_off(
         )
 
     try:
+        # Fallback path still persists through the same atomic write helper.
         write_toml_document(config_path, document)
     except BaseException as exc:
         return result_from_exception(
@@ -213,6 +236,7 @@ def execute_command(
     # -> delegate to on/off flow.
     action = f"$notifications {command}"
 
+    # Guardrail: command must be exactly "on" or "off".
     if command not in ALLOWED_COMMANDS:
         return build_result(
             action=action,
@@ -221,6 +245,8 @@ def execute_command(
             next_action=USAGE_TEXT,
         )
 
+    # If state helpers failed to import earlier, return a deterministic JSON
+    # failure instead of raising during command handling.
     if _STATE_IMPORT_ERROR is not None:
         return failed_result(
             action,
@@ -238,6 +264,7 @@ def execute_command(
         return blocked_result(action, blocked_reason or "Config path is not writable.")
 
     try:
+        # Parse once, then pass the mutable document through on/off handlers.
         document = load_toml_document(config_path)
     except BaseException as exc:
         return result_from_exception(
@@ -256,6 +283,8 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     # Keep parsing permissive so main() can return structured JSON errors
     # instead of argparse's default raw stderr/exit behavior.
     parser = argparse.ArgumentParser(add_help=False)
+    # Keep parser surface small and explicit: one positional command plus
+    # opt-in overrides for testing/manual execution.
     parser.add_argument("command", nargs="?")
     parser.add_argument("--config")
     parser.add_argument("--snapshot")
@@ -287,6 +316,8 @@ def main(argv: list[str] | None = None) -> int:
         return exit_code_for_status(result["status"])
 
     if args.help:
+        # Help is intentionally reported as invalid-input to preserve stable
+        # exit/status semantics expected by existing tests/tooling.
         emit_result(
             build_result(
                 action="$notifications help",
@@ -298,6 +329,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if extras or args.command is None:
+        # Reject unknown trailing args so behavior remains predictable.
         result = build_result(
             action="$notifications <missing>",
             status=STATUS_INVALID_INPUT,
