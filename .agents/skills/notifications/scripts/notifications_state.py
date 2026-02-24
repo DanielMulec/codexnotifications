@@ -16,12 +16,15 @@ import tomlkit
 from tomlkit.toml_document import TOMLDocument
 
 SNAPSHOT_FILENAME = ".codex-notifications-v1-snapshot.json"
+# Canonical values this skill writes when notifications are enabled.
 SKILL_NOTIFY_COMMAND = "python3"
 TARGET_TUI_NOTIFICATIONS = ("approval-requested",)
 TARGET_TUI_NOTIFICATION_METHOD = "bel"
 
 
 def is_permission_block(exc: BaseException) -> bool:
+    # Normalize platform-specific permission errors into one boolean check
+    # so callers can map them to a stable "blocked" result.
     if isinstance(exc, PermissionError):
         return True
     if isinstance(exc, OSError):
@@ -30,6 +33,8 @@ def is_permission_block(exc: BaseException) -> bool:
 
 
 def resolve_config_path(config_override: str | None) -> Path:
+    # Resolve user config in priority order:
+    # explicit override -> CODEX_HOME -> default ~/.codex.
     if config_override:
         return Path(config_override).expanduser()
 
@@ -41,18 +46,22 @@ def resolve_config_path(config_override: str | None) -> Path:
 
 
 def resolve_snapshot_path(config_path: Path, snapshot_override: str | None) -> Path:
+    # Snapshot lives next to the target config unless explicitly overridden.
     if snapshot_override:
         return Path(snapshot_override).expanduser()
     return config_path.parent / SNAPSHOT_FILENAME
 
 
 def resolve_notify_script_path(notify_override: str | None) -> Path:
+    # Resolve to an absolute script path so notify matching is deterministic.
     if notify_override:
         return Path(notify_override).expanduser().resolve()
     return Path(__file__).resolve().with_name("notify_event.py")
 
 
 def prepare_config_directory(config_path: Path) -> tuple[bool, str | None]:
+    # Ensure parent directory exists and is writable before any read/write
+    # to avoid partial work and confusing mid-flight failures.
     parent = config_path.parent
     try:
         parent.mkdir(parents=True, exist_ok=True)
@@ -87,6 +96,8 @@ def prepare_config_directory(config_path: Path) -> tuple[bool, str | None]:
 
 
 def load_toml_document(path: Path) -> TOMLDocument:
+    # Missing or empty config is treated as an empty document so "on" can
+    # initialize settings without special caller logic.
     if not path.exists():
         return tomlkit.document()
 
@@ -101,6 +112,11 @@ def load_toml_document(path: Path) -> TOMLDocument:
 
 
 def atomic_write_text(path: Path, content: str) -> None:
+    # Atomic write pattern:
+    # 1) write to temp file in same directory
+    # 2) fsync
+    # 3) replace destination
+    # This protects config files from partial writes.
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temp_raw = tempfile.mkstemp(prefix=f".{path.name}.tmp-", dir=path.parent)
     temp_path = Path(temp_raw)
@@ -127,11 +143,14 @@ def atomic_write_text(path: Path, content: str) -> None:
 
 
 def write_toml_document(path: Path, document: TOMLDocument) -> None:
+    # Dedicated helper keeps TOML serialization and write semantics centralized.
     content = tomlkit.dumps(document)
     atomic_write_text(path, content)
 
 
 def _unwrap_value(value: Any) -> Any:
+    # Convert tomlkit container/item types into plain Python values so
+    # equality checks and JSON snapshots are stable and predictable.
     if hasattr(value, "unwrap"):
         value = value.unwrap()
 
@@ -145,12 +164,15 @@ def _unwrap_value(value: Any) -> Any:
 
 
 def key_state(value_present: bool, value: Any | None = None) -> dict[str, Any]:
+    # Snapshot format stores both key presence and value to distinguish
+    # "key absent" from "key present with false/empty value".
     if value_present:
         return {"present": True, "value": copy.deepcopy(_unwrap_value(value))}
     return {"present": False}
 
 
 def capture_prior_state(document: TOMLDocument) -> dict[str, Any]:
+    # Capture only keys this skill may mutate so restore is focused and safe.
     prior: dict[str, Any] = {}
     prior["notify"] = key_state("notify" in document, document.get("notify"))
 
@@ -172,6 +194,7 @@ def capture_prior_state(document: TOMLDocument) -> dict[str, Any]:
 def write_snapshot(
     snapshot_path: Path, config_path: Path, prior_state: dict[str, Any]
 ) -> None:
+    # Snapshot is JSON for easy debugging and compatibility with tooling.
     payload = {
         "version": 1,
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
@@ -182,6 +205,10 @@ def write_snapshot(
 
 
 def load_snapshot(snapshot_path: Path) -> tuple[dict[str, Any] | None, str | None]:
+    # Returns:
+    # - (prior_state, None) when valid
+    # - (None, warning_message) when malformed/unreadable
+    # This lets callers continue with safe fallback while surfacing context.
     if not snapshot_path.exists():
         return None, None
 
@@ -206,18 +233,22 @@ def load_snapshot(snapshot_path: Path) -> tuple[dict[str, Any] | None, str | Non
 
 
 def remove_snapshot(snapshot_path: Path) -> None:
+    # Best-effort cleanup; caller decides whether errors matter.
     snapshot_path.unlink(missing_ok=True)
 
 
 def normalized_path(path_value: str) -> str:
+    # Normalize for reliable path comparisons across relative/tilde input.
     return str(Path(path_value).expanduser().resolve())
 
 
 def notify_target_value(notify_script_path: Path) -> list[str]:
+    # Final shape expected in config.toml for the notify hook command.
     return [SKILL_NOTIFY_COMMAND, str(notify_script_path)]
 
 
 def is_skill_notify_value(value: Any, notify_script_path: Path) -> bool:
+    # True only when notify points to this skill's exact hook command/path.
     unwrapped = _unwrap_value(value)
     if not isinstance(unwrapped, list) or len(unwrapped) != 2:
         return False
@@ -233,6 +264,7 @@ def is_skill_notify_value(value: Any, notify_script_path: Path) -> bool:
 
 
 def is_target_on(document: TOMLDocument, notify_script_path: Path) -> bool:
+    # Detect full "on" state across all controlled keys.
     notify_ok = is_skill_notify_value(document.get("notify"), notify_script_path)
     tui = document.get("tui")
     if not isinstance(tui, dict):
@@ -247,6 +279,8 @@ def is_target_on(document: TOMLDocument, notify_script_path: Path) -> bool:
 
 
 def apply_on_state(document: TOMLDocument, notify_script_path: Path) -> bool:
+    # Mutate in-memory document to target "on" values.
+    # Returns True when at least one key changed.
     changed = False
 
     target_notify = notify_target_value(notify_script_path)
@@ -256,6 +290,7 @@ def apply_on_state(document: TOMLDocument, notify_script_path: Path) -> bool:
 
     tui = document.get("tui")
     if not isinstance(tui, dict):
+        # Create [tui] section only when needed.
         tui = tomlkit.table()
         document["tui"] = tui
         changed = True
@@ -273,6 +308,7 @@ def apply_on_state(document: TOMLDocument, notify_script_path: Path) -> bool:
 
 
 def restore_key(document: TOMLDocument, key: str, state: dict[str, Any] | None) -> None:
+    # Restore top-level key to previous value or remove if previously absent.
     if state and state.get("present"):
         document[key] = copy.deepcopy(state.get("value"))
     else:
@@ -282,9 +318,11 @@ def restore_key(document: TOMLDocument, key: str, state: dict[str, Any] | None) 
 def restore_tui_key(
     document: TOMLDocument, key: str, state: dict[str, Any] | None
 ) -> None:
+    # Same restore semantics as restore_key, but scoped to [tui] table.
     tui = document.get("tui")
     if state and state.get("present"):
         if not isinstance(tui, dict):
+            # Recreate [tui] if prior state says key existed.
             tui = tomlkit.table()
             document["tui"] = tui
         tui[key] = copy.deepcopy(state.get("value"))
@@ -293,6 +331,7 @@ def restore_tui_key(
     if isinstance(tui, dict):
         tui.pop(key, None)
         if not tui:
+            # Remove empty [tui] table to keep config tidy.
             document.pop("tui", None)
 
 
@@ -315,6 +354,9 @@ def apply_snapshot_restore(document: TOMLDocument, prior_state: dict[str, Any]) 
 def apply_safe_off_without_snapshot(
     document: TOMLDocument, notify_script_path: Path
 ) -> bool:
+    # Fallback path when no valid snapshot exists.
+    # Goal: undo only this skill's known overrides and avoid touching
+    # unrelated custom user settings.
     changed = False
 
     notify_value = document.get("notify")

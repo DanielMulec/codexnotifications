@@ -18,6 +18,8 @@ STATUS_FAILED = "failed"
 
 _STATE_IMPORT_ERROR: Exception | None = None
 
+# Import state helpers once at module load so command execution can fail fast
+# with a clear dependency message if `tomlkit` or the module is unavailable.
 try:
     from notifications_state import (  # type: ignore
         apply_on_state,
@@ -43,6 +45,7 @@ except Exception as exc:  # pragma: no cover - exercised via CLI dependency-fail
 def build_result(
     action: str, status: str, rationale: str, next_action: str = ""
 ) -> dict[str, str]:
+    # Unified response shape used by all command outcomes.
     return {
         "action": action,
         "status": status,
@@ -52,10 +55,12 @@ def build_result(
 
 
 def emit_result(result: dict[str, str]) -> None:
+    # CLI contract: always emit machine-readable JSON.
     print(json.dumps(result, ensure_ascii=True))
 
 
 def blocked_result(action: str, reason: str) -> dict[str, str]:
+    # "blocked" means policy/permissions prevented touching global config.
     return build_result(
         action=action,
         status=STATUS_BLOCKED,
@@ -68,6 +73,7 @@ def blocked_result(action: str, reason: str) -> dict[str, str]:
 
 
 def failed_result(action: str, reason: str) -> dict[str, str]:
+    # "failed" means an unexpected runtime or data error (not policy block).
     return build_result(
         action=action,
         status=STATUS_FAILED,
@@ -82,12 +88,18 @@ def result_from_exception(
     blocked_reason_prefix: str,
     failed_reason_prefix: str,
 ) -> dict[str, str]:
+    # One place to map exceptions into user-facing status buckets.
+    # This keeps error wording consistent across on/off/read/write paths.
     if is_permission_block(exc):
         return blocked_result(action, f"{blocked_reason_prefix}: {exc}")
     return failed_result(action, f"{failed_reason_prefix}: {exc}")
 
 
 def execute_on(document, config_path, snapshot_path, notify_script_path) -> dict[str, str]:
+    # "on" flow:
+    # 1) short-circuit if already in target state
+    # 2) snapshot previous user values
+    # 3) apply target values + persist
     action = "$notifications on"
 
     if is_target_on(document, notify_script_path):
@@ -101,6 +113,7 @@ def execute_on(document, config_path, snapshot_path, notify_script_path) -> dict
     apply_on_state(document, notify_script_path)
 
     try:
+        # Snapshot is written before config mutation so "off" has restore data.
         write_snapshot(snapshot_path, config_path, prior_state)
         write_toml_document(config_path, document)
     except BaseException as exc:
@@ -129,6 +142,9 @@ def execute_off(
     snapshot_path,
     notify_script_path,
 ) -> dict[str, str]:
+    # "off" flow prefers exact restore from snapshot.
+    # If snapshot is missing/broken, use a safe fallback that only removes
+    # values this skill controls.
     action = "$notifications off"
 
     prior_state, snapshot_warning = load_snapshot(snapshot_path)
@@ -136,6 +152,7 @@ def execute_off(
     warning_suffix = f" ({snapshot_warning})" if snapshot_warning else ""
 
     if prior_state is not None:
+        # Snapshot restore path: put prior values back exactly as captured.
         changed = apply_snapshot_restore(document, prior_state)
         try:
             if changed:
@@ -157,6 +174,7 @@ def execute_off(
 
     changed = apply_safe_off_without_snapshot(document, notify_script_path)
     if not changed:
+        # Already off (or nothing skill-managed to change).
         return build_result(
             action=action,
             status=STATUS_ALREADY_APPLIED,
@@ -190,6 +208,9 @@ def execute_command(
     snapshot_override: str | None,
     notify_override: str | None,
 ) -> dict[str, str]:
+    # Shared orchestration for both commands:
+    # validate input -> resolve paths -> verify writability -> load config
+    # -> delegate to on/off flow.
     action = f"$notifications {command}"
 
     if command not in ALLOWED_COMMANDS:
@@ -211,6 +232,7 @@ def execute_command(
     snapshot_path = resolve_snapshot_path(config_path, snapshot_override)
     notify_script_path = resolve_notify_script_path(notify_override)
 
+    # Catch write-denied situations early to provide clear guidance.
     writable, blocked_reason = prepare_config_directory(config_path)
     if not writable:
         return blocked_result(action, blocked_reason or "Config path is not writable.")
@@ -231,6 +253,8 @@ def execute_command(
 
 
 def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
+    # Keep parsing permissive so main() can return structured JSON errors
+    # instead of argparse's default raw stderr/exit behavior.
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("command", nargs="?")
     parser.add_argument("--config")
@@ -241,6 +265,7 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
 
 
 def exit_code_for_status(status: str) -> int:
+    # Exit codes are stable so shell wrappers can react programmatically.
     if status in {STATUS_APPLIED, STATUS_ALREADY_APPLIED}:
         return 0
     if status == STATUS_INVALID_INPUT:
@@ -251,6 +276,7 @@ def exit_code_for_status(status: str) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # CLI entrypoint: parse -> validate -> execute -> emit one JSON result.
     cli_argv = argv if argv is not None else sys.argv[1:]
 
     try:
