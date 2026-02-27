@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import tomllib
 import unittest
+from unittest import mock
 
 import tomlkit
 
@@ -42,8 +43,9 @@ class NotificationsStateTests(unittest.TestCase):
 
     def test_is_skill_notify_value_accepts_toml_array(self) -> None:
         notify_path = Path("/tmp/notify_event.py").resolve()
+        notify_command = self.mod.SKILL_NOTIFY_COMMAND
         document = tomlkit.parse(
-            f'notify = ["python3", "{notify_path}"]\n'
+            f'notify = ["{notify_command}", "{notify_path}"]\n'
         )
 
         self.assertTrue(self.mod.is_skill_notify_value(document.get("notify"), notify_path))
@@ -88,9 +90,10 @@ class NotificationsStateTests(unittest.TestCase):
 
     def test_apply_safe_off_without_snapshot_is_idempotent(self) -> None:
         notify_path = Path("/tmp/notify_event.py").resolve()
+        notify_command = self.mod.SKILL_NOTIFY_COMMAND
         document = tomlkit.parse(
             'model = "gpt-5"\n'
-            f'notify = ["python3", "{notify_path}"]\n\n'
+            f'notify = ["{notify_command}", "{notify_path}"]\n\n'
             "[tui]\n"
             'notifications = ["approval-requested"]\n'
             'notification_method = "bel"\n'
@@ -130,6 +133,33 @@ class NotificationsStateTests(unittest.TestCase):
             prior_state["tui.notification_method"],
             {"present": True, "value": "bel"},
         )
+
+    def test_resolve_skill_python_command_windows_prefers_sys_executable(self) -> None:
+        with (
+            mock.patch.object(self.mod.sys, "platform", "win32"),
+            mock.patch.object(self.mod.sys, "executable", "/tmp/python-from-sys.exe"),
+            mock.patch.object(self.mod.shutil, "which", return_value=None),
+        ):
+            command = self.mod._resolve_skill_python_command()
+
+        self.assertEqual(command, str(Path("/tmp/python-from-sys.exe").resolve()))
+
+    def test_resolve_skill_python_command_windows_uses_python_fallback(self) -> None:
+        def which_side_effect(binary: str) -> str | None:
+            mapping = {
+                "python": "/tmp/python-from-which.exe",
+                "py": "/tmp/python-launcher.exe",
+            }
+            return mapping.get(binary)
+
+        with (
+            mock.patch.object(self.mod.sys, "platform", "win32"),
+            mock.patch.object(self.mod.sys, "executable", ""),
+            mock.patch.object(self.mod.shutil, "which", side_effect=which_side_effect),
+        ):
+            command = self.mod._resolve_skill_python_command()
+
+        self.assertEqual(command, str(Path("/tmp/python-from-which.exe").resolve()))
 
 
 if __name__ == "__main__":

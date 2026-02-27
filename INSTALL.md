@@ -75,7 +75,22 @@ Expected JSON includes:
 
 If you see a dependency error for `tomlkit`, install `tomlkit` in the same Python environment used by `python3`.
 
-## 5. Safe Uninstall
+## 5. Windows Runtime Notes (Optional)
+
+If you upgraded from an older build that did not work on Windows:
+
+1. uninstall the skill
+2. install the updated skill
+3. run `$notifications on` once to rewrite `notify` with the stable Windows interpreter command
+
+Optional runtime overrides for hook diagnostics:
+
+```powershell
+$env:CODEX_NOTIFY_LOG = "$HOME\.codex\log\notify_hook.log"
+$env:CODEX_NOTIFY_WAV = "$env:WINDIR\Media\chimes.wav"
+```
+
+## 6. Safe Uninstall
 
 1. Turn notifications policy off first (restores user state/snapshot when available):
 
@@ -103,7 +118,7 @@ if (Test-Path $scriptPath) { py $scriptPath off }
 Remove-Item -Recurse -Force (Join-Path $codexHome "skills/notifications")
 ```
 
-## 6. Dependency Removal Policy
+## 7. Dependency Removal Policy
 
 `tomlkit` is not removed automatically during skill uninstall, to avoid breaking other user tooling.
 

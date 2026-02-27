@@ -106,10 +106,21 @@ Expected JSON includes:
 
 - No sound after `$notifications on`:
   restart Codex CLI and try again.
+- Windows after upgrading this skill:
+  reinstall the skill, then run `$notifications on` once so `notify` is rewritten with a stable Windows interpreter command.
 - Write blocked / permission errors:
   allow writes to your global Codex config directory (`${CODEX_HOME:-$HOME/.codex}`) or rerun with the required policy/permissions.
 - `tomlkit` dependency error:
   install `tomlkit` in the same interpreter used by `python3`.
+- Windows hook diagnostics (optional):
+  set `CODEX_NOTIFY_LOG` to override hook log path and `CODEX_NOTIFY_WAV` to force a specific WAV file.
+
+Windows PowerShell examples:
+
+```powershell
+$env:CODEX_NOTIFY_LOG = "$HOME\.codex\log\notify_hook.log"
+$env:CODEX_NOTIFY_WAV = "$env:WINDIR\Media\chimes.wav"
+```
 
 ## Uninstall / Rollback
 

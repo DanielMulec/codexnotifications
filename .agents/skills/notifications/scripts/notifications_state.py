@@ -9,6 +9,8 @@ import errno
 import json
 import os
 from pathlib import Path
+import shutil
+import sys
 import tempfile
 from typing import Any
 
@@ -16,8 +18,40 @@ import tomlkit
 from tomlkit.toml_document import TOMLDocument
 
 SNAPSHOT_FILENAME = ".codex-notifications-v1-snapshot.json"
+
+
+def _resolve_skill_python_command() -> str:
+    # Resolve the interpreter command written into `notify = [cmd, script]`.
+    #
+    # Why this exists:
+    # - On Windows, `python3` may resolve to an App Execution Alias and fail
+    #   at runtime for hook invocation.
+    # - Using a concrete interpreter path improves launch reliability.
+    #
+    # Platform policy:
+    # - Windows: prefer current interpreter, then `python`, then `py`.
+    # - Non-Windows: preserve existing v1 behavior (`python3`).
+    if sys.platform == "win32":
+        if sys.executable:
+            # When available, this is usually the most deterministic runtime.
+            return str(Path(sys.executable).expanduser().resolve())
+
+        python_cmd = shutil.which("python")
+        if python_cmd:
+            return str(Path(python_cmd).expanduser().resolve())
+
+        py_cmd = shutil.which("py")
+        if py_cmd:
+            return str(Path(py_cmd).expanduser().resolve())
+
+        # Last-resort fallback keeps config shape valid even on unusual systems.
+        return "python"
+
+    return "python3"
+
+
 # Canonical values this skill writes when notifications are enabled.
-SKILL_NOTIFY_COMMAND = "python3"
+SKILL_NOTIFY_COMMAND = _resolve_skill_python_command()
 TARGET_TUI_NOTIFICATIONS = ("approval-requested",)
 TARGET_TUI_NOTIFICATION_METHOD = "bel"
 

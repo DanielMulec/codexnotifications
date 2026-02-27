@@ -8,6 +8,7 @@ import sys
 import tempfile
 import tomllib
 import unittest
+import importlib.util
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +20,26 @@ SCRIPT_PATH = (
     / "scripts"
     / "notifications_ctl.py"
 )
+STATE_MODULE_PATH = (
+    REPO_ROOT
+    / ".agents"
+    / "skills"
+    / "notifications"
+    / "scripts"
+    / "notifications_state.py"
+)
+
+
+def load_state_module():
+    spec = importlib.util.spec_from_file_location("notifications_state", STATE_MODULE_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load notifications_state module spec")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+SKILL_NOTIFY_COMMAND = load_state_module().SKILL_NOTIFY_COMMAND
 
 
 def parse_json_stdout(raw_stdout: str) -> dict[str, str]:
@@ -93,7 +114,7 @@ class NotificationsCtlTests(unittest.TestCase):
         config = self.read_config()
         self.assertEqual(
             config["notify"],
-            ["python3", str(self.notify_script_path.resolve())],
+            [SKILL_NOTIFY_COMMAND, str(self.notify_script_path.resolve())],
         )
         self.assertEqual(config["tui"]["notifications"], ["approval-requested"])
         self.assertEqual(config["tui"]["notification_method"], "bel")
