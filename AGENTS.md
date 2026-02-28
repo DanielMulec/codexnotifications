@@ -56,3 +56,20 @@ A proposal is ready for approval only when it includes:
 - Better alternatives considered
 - Expected outcome
 - Verification method
+
+## 8) Engineering Quality and Release Governance
+
+- For every user-visible change, update `CHANGELOG.md` in the same PR/commit series.
+- For any release-related change, include a versioning plan (`next version` and intended tag, e.g. `v0.4.0`).
+- If a change can affect upgrade behavior, update `MIGRATIONS.md` with:
+  - from-version
+  - to-version
+  - affected users/platforms
+  - required action (or explicit `None`)
+  - rationale
+- Before commit, run and report:
+  - `ruff check .`
+  - `mypy`
+  - `python3 -m unittest discover -s tests -v`
+- If behavior changes differ by OS (Windows/macOS/Linux), include explicit upgrade notes in `CHANGELOG.md`.
+- Keep commits clean: do not commit `__pycache__`, virtualenvs, temp artifacts, or unrelated files.
