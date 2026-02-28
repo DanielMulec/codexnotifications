@@ -7,9 +7,10 @@ import datetime as dt
 import json
 import os
 import platform
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
+from typing import Any
 
 SUPPORTED_EVENT = "agent-turn-complete"
 WINDOWS_MEDIA_FILENAMES = (
@@ -136,12 +137,21 @@ def windows_candidate_wav_paths() -> list[Path]:
     return candidates
 
 
+def _load_winsound() -> Any | None:
+    # `winsound` exists on Windows only; load lazily for cross-platform execution.
+    try:
+        import importlib
+
+        return importlib.import_module("winsound")
+    except ImportError:
+        return None
+
+
 def play_windows_wav_file() -> tuple[bool, str]:
     # Prefer synchronous WAV playback so hook process lifetime does not
     # terminate sound output early on short-lived invocations.
-    try:
-        import winsound  # type: ignore
-    except ImportError:
+    winsound = _load_winsound()
+    if winsound is None:
         return False, "windows:winsound-unavailable"
 
     for wav_path in windows_candidate_wav_paths():
@@ -158,9 +168,8 @@ def play_windows_wav_file() -> tuple[bool, str]:
 
 def play_windows_beep_chime() -> tuple[bool, str]:
     # Deterministic three-note chime avoids user sound-scheme dependency.
-    try:
-        import winsound  # type: ignore
-    except ImportError:
+    winsound = _load_winsound()
+    if winsound is None:
         return False, "windows:winsound-unavailable"
 
     try:
@@ -187,9 +196,8 @@ def play_windows_powershell_chime() -> tuple[bool, str]:
 def play_windows_alias_fallback() -> tuple[bool, str]:
     # Alias-based sounds depend on per-user scheme/mixer state, so this is a
     # late fallback rather than primary backend.
-    try:
-        import winsound  # type: ignore
-    except ImportError:
+    winsound = _load_winsound()
+    if winsound is None:
         return False, "windows:winsound-unavailable"
 
     try:

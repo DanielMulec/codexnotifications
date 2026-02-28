@@ -130,11 +130,28 @@ For safe uninstall (including `off` first, then folder removal), use:
 
 ## Quality and Verification
 
-Run tests locally:
+Install dev tooling:
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+```
+
+Run local quality checks:
+
+```bash
+ruff check .
+mypy
+```
+
+Run tests:
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+Version history:
+
+- `CHANGELOG.md`
 
 ## More Documentation
 

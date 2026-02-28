@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import tomllib
 import unittest
-import importlib.util
+from pathlib import Path
 
+import tomllib
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = (
@@ -82,7 +82,9 @@ class NotificationsCtlTests(unittest.TestCase):
         return completed.returncode, payload
 
     def read_config(self) -> dict[str, object]:
-        if not self.config_path.exists() or not self.config_path.read_text(encoding="utf-8").strip():
+        if not self.config_path.exists() or not self.config_path.read_text(
+            encoding="utf-8"
+        ).strip():
             return {}
         return tomllib.loads(self.config_path.read_text(encoding="utf-8"))
 

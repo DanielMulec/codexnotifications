@@ -21,7 +21,7 @@ _STATE_IMPORT_ERROR: Exception | None = None
 # Import state helpers once at module load so command execution can fail fast
 # with a clear dependency message if `tomlkit` or the module is unavailable.
 try:
-    from notifications_state import (  # type: ignore
+    from notifications_state import (
         apply_on_state,
         apply_safe_off_without_snapshot,
         apply_snapshot_restore,
@@ -191,7 +191,11 @@ def execute_off(
         return build_result(
             action=action,
             status=STATUS_APPLIED,
-            rationale="Restored prior user notification settings from snapshot" + warning_suffix + ".",
+            rationale=(
+                "Restored prior user notification settings from snapshot"
+                + warning_suffix
+                + "."
+            ),
         )
 
     changed = apply_safe_off_without_snapshot(document, notify_script_path)
@@ -251,7 +255,10 @@ def execute_command(
         return failed_result(
             action,
             "State module dependency initialization failed: "
-            + f"{_STATE_IMPORT_ERROR}. Install runtime dependency with 'python3 -m pip install tomlkit'.",
+            + (
+                f"{_STATE_IMPORT_ERROR}. "
+                "Install runtime dependency with 'python3 -m pip install tomlkit'."
+            ),
         )
 
     config_path = resolve_config_path(config_override)
