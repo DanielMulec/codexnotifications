@@ -156,6 +156,7 @@ Version history:
 ## More Documentation
 
 - `INSTALL.md`
+- `MIGRATIONS.md`
 - `docs/notifications-noob-start-here.md`
 
 ## Contact
