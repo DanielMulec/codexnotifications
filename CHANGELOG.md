@@ -12,14 +12,24 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   - Ruff linting (`E,F,W,I,UP,B,C90`)
   - McCabe complexity check (`C901`, max complexity `10`)
   - Mypy type-checking configuration for skill scripts
+- Refactor planning documentation for the next implementation cycle:
+  - staged type-safety and maintainability plan
+  - cross-platform verification matrix for macOS, Linux, and Windows
+  - explicit Python-version policy decision to keep runtime support at `3.10` unless implementation forces a change
 
 ### Changed
 - Updated notification scripts and tests formatting/import order to satisfy Ruff.
 - Improved cross-platform typing for Windows sound backends in `notify_event.py`.
+- Clarified that the current `mypy` gate only covers the bundled skill scripts and that repo-wide strict typing is planned work, not completed work.
 
 ### Upgrade Notes
 - No runtime migration required from `0.3.0`.
 - This release only affects development workflow and quality gates.
+
+### Versioning Plan
+- Next intended implementation release: `0.4.0`
+- Intended tag: `v0.4.0`
+- Release goal: ship the typed/refactored codebase without changing user-facing notification behavior across macOS, Linux, and Windows.
 
 ## [0.3.0] - 2026-02-27
 

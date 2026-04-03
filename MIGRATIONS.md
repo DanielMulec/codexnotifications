@@ -12,7 +12,7 @@ breaking notify hook execution.
 |---|---|---|---|---|
 | `0.1.0` | `0.2.0` | All | None | No persistent schema break introduced. |
 | `0.2.0` | `0.3.0` | Windows | Run `$notifications on` once after update. | Rewrites `notify` command to a stable interpreter path for Windows. |
-| `0.3.0` | `Unreleased` | All | None | Tooling and code-quality baseline only; runtime contract unchanged. |
+| `0.3.0` | `Unreleased` | All | None | Current unreleased state documents the upcoming refactor plan only; runtime contract is still unchanged. |
 
 ## Migration Policy
 
@@ -22,3 +22,9 @@ breaking notify hook execution.
   - Notify command/path format that prior installs still reference
   - Runtime behavior requiring user action after update
 - If no user action is required, record `None` explicitly to keep upgrade intent clear.
+
+## Planned Next Release
+
+- Target release under active planning: `0.4.0`
+- Intended upgrade posture: `0.3.0 -> 0.4.0` should require no user action
+- Constraint: if the implementation changes interpreter policy, snapshot semantics, or Windows upgrade behavior, this document must be updated before release

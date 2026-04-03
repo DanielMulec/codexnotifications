@@ -153,11 +153,26 @@ Version history:
 
 - `CHANGELOG.md`
 
+## Refactor Direction
+
+The project is entering a stricter typing and maintainability refactor before the next release.
+
+Current decision:
+
+- keep runtime compatibility aligned to Python `3.10` across macOS, Linux, and Windows unless implementation work proves a higher floor is necessary
+- treat test-only `tomllib` usage as the mismatch to remove, rather than raising the project-wide Python floor just to satisfy tests
+- widen static analysis in stages so behavior stays stable while typing gets stricter
+
+Detailed implementation plan:
+
+- `docs/type-safety-refactor-plan.md`
+
 ## More Documentation
 
 - `INSTALL.md`
 - `MIGRATIONS.md`
 - `docs/notifications-noob-start-here.md`
+- `docs/type-safety-refactor-plan.md`
 
 ## Contact
 
