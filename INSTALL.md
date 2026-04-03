@@ -35,6 +35,7 @@ Then restart Codex CLI.
 ## 3. Install Python Dependency (`tomlkit`)
 
 This skill requires `tomlkit` for TOML parse/edit/write in `notifications_state.py`.
+Minimum supported Python for this project is `3.11`.
 
 ### macOS / Linux
 

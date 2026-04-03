@@ -43,7 +43,7 @@ Core files:
 ## Requirements
 
 - Codex CLI (with skills support)
-- Python 3
+- Python `3.11+`
 - Python package `tomlkit` in the same Python environment used by `python3`
 
 Install dependency:
@@ -159,8 +159,8 @@ The project is entering a stricter typing and maintainability refactor before th
 
 Current decision:
 
-- keep runtime compatibility aligned to Python `3.10` across macOS, Linux, and Windows unless implementation work proves a higher floor is necessary
-- treat test-only `tomllib` usage as the mismatch to remove, rather than raising the project-wide Python floor just to satisfy tests
+- standardize the project on Python `3.11+` across macOS, Linux, and Windows
+- keep stdlib `tomllib` as the default TOML reader in tests and related tooling
 - widen static analysis in stages so behavior stays stable while typing gets stricter
 
 Detailed implementation plan:

@@ -15,16 +15,18 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Refactor planning documentation for the next implementation cycle:
   - staged type-safety and maintainability plan
   - cross-platform verification matrix for macOS, Linux, and Windows
-  - explicit Python-version policy decision to keep runtime support at `3.10` unless implementation forces a change
+  - explicit Python-version policy decision to standardize on `3.11+`
 
 ### Changed
 - Updated notification scripts and tests formatting/import order to satisfy Ruff.
 - Improved cross-platform typing for Windows sound backends in `notify_event.py`.
 - Clarified that the current `mypy` gate only covers the bundled skill scripts and that repo-wide strict typing is planned work, not completed work.
+- Added the repository workflow rule that all work stays on `main` unless Daniel explicitly requests an exception.
 
 ### Upgrade Notes
-- No runtime migration required from `0.3.0`.
-- This release only affects development workflow and quality gates.
+- Planned next implementation release will require Python `3.11+`.
+- Users still on Python `3.10` will need to upgrade their interpreter before adopting that release.
+- Current unreleased state is still documentation and planning only.
 
 ### Versioning Plan
 - Next intended implementation release: `0.4.0`

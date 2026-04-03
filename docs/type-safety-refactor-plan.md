@@ -11,24 +11,25 @@ Ship the next implementation release with:
 - stricter static analysis over the whole repo, not only the skill scripts
 - no explicit `Any` in production code
 - sharply reduced implicit `Any` in tests and helpers
+- a single Python `3.11+` baseline across runtime, tests, and tooling
 - stable runtime behavior for `$notifications on` and `$notifications off` on macOS, Linux, and Windows
 
 ## Core Decision: Python Version Policy
 
-The pragmatic and correct baseline is to keep the project typed and tested against Python `3.10` for now.
+The project baseline is Python `3.11+`.
 
 Reasoning:
 
-- runtime code does not currently need Python `3.11+` features
-- the current `3.11+` dependency is coming from test-side `tomllib`, not from the shipped skill
-- raising the project floor for a test helper would reduce compatibility without a product benefit
-- macOS, Linux, and Windows environments are easier to support when the runtime floor stays broader
+- Python `3.10` reaches end-of-life in October 2026
+- Python `3.11+` gives a cleaner standard-library baseline, including `tomllib`
+- one project-wide floor is simpler than mixing a `3.10` runtime policy with `3.11`-leaning tests and tooling
+- macOS, Linux, and Windows all have strong Python `3.11+` availability, so the compatibility cost is acceptable
 
 Implementation consequence:
 
-- keep `ruff` and `mypy` targets aligned to Python `3.10` unless the refactor reveals a concrete need to raise them
-- replace or abstract test-side `tomllib` usage so tests remain compatible with the chosen baseline
-- if a later implementation phase requires `3.11+`, update `README.md`, `INSTALL.md`, `CHANGELOG.md`, and `MIGRATIONS.md` in the same change series
+- move `ruff` and `mypy` targets to Python `3.11`
+- keep `tomllib` as the standard-library TOML reader in tests and tooling where it is useful
+- update `README.md`, `INSTALL.md`, `CHANGELOG.md`, and `MIGRATIONS.md` alongside the implementation
 
 ## Current Problems To Address
 
@@ -49,6 +50,9 @@ Implementation consequence:
 
 6. JSON/TOML parsing boundaries are not normalized.
    `json.loads` and test parsing helpers allow broad untyped values to spread.
+
+7. Project policy is inconsistent.
+   Tests already lean on Python `3.11` stdlib features while tooling configuration still targets `3.10`.
 
 ## Refactor Principles
 
@@ -79,25 +83,26 @@ Verification:
 - `python3 -m unittest discover -s tests -v`
 - one manual smoke pass per OS
 
-### Phase 1: Fix the Python-Version Mismatch Without Raising Runtime Floor
+### Phase 1: Align the Project to Python 3.11+
 
 Goal:
 
-- make tests compatible with the chosen Python `3.10` baseline
+- make runtime, tests, docs, and tooling agree on Python `3.11+`
 
 Actions:
 
-- remove direct dependency on `tomllib` in tests, or add a compatibility import path that works on `3.10`
-- keep dev tooling and docs aligned with the chosen baseline
+- update project tooling configuration to Python `3.11`
+- update install and upgrade documentation to require Python `3.11+`
+- keep test parsing on stdlib `tomllib`
 - rerun `mypy` over tests explicitly, not only over scripts
 
 Why this phase comes first:
 
-- otherwise repo-wide type-checking is polluted by an avoidable version-policy mismatch
+- otherwise repo-wide type-checking and docs remain incoherent
 
 Verification:
 
-- `python3 -m mypy tests --check-untyped-defs`
+- `python3 -m mypy tests --python-version 3.11 --check-untyped-defs`
 - same unit test suite on all three OS targets
 
 ### Phase 2: Type the Public and Internal Data Shapes
@@ -165,7 +170,7 @@ Expected result:
 
 Verification:
 
-- `python3 -m mypy tests --python-version 3.10 --check-untyped-defs`
+- `python3 -m mypy tests --python-version 3.11 --check-untyped-defs`
 
 ### Phase 5: Expand the Official `mypy` Gate
 
@@ -232,8 +237,12 @@ Actions:
 
 Rollback plan:
 
-- if cross-platform behavior regresses, revert the refactor branch and keep the pre-refactor release line intact
+- if cross-platform behavior regresses, revert the refactor commits on `main` and keep the pre-refactor release line intact
 - if only strict typing configuration proves too aggressive, keep runtime refactors and relax only the specific gating flag that blocks adoption
+
+Release-policy rollback note:
+
+- the Python `3.11+` support-floor decision should only be reversed by an explicit product decision, not as an incidental implementation convenience
 
 ## Proposed Quality Gates After Refactor
 
@@ -246,7 +255,7 @@ Recommended `mypy` end state:
 - repo-wide scope
 - no explicit `Any` in production code
 - no untyped production functions
-- tests checked under the same supported Python baseline unless a documented exception exists
+- tests checked under the same `3.11+` supported baseline as the shipped project
 
 ## Cross-Platform Test Matrix
 

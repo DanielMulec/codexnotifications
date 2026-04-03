@@ -13,6 +13,7 @@ breaking notify hook execution.
 | `0.1.0` | `0.2.0` | All | None | No persistent schema break introduced. |
 | `0.2.0` | `0.3.0` | Windows | Run `$notifications on` once after update. | Rewrites `notify` command to a stable interpreter path for Windows. |
 | `0.3.0` | `Unreleased` | All | None | Current unreleased state documents the upcoming refactor plan only; runtime contract is still unchanged. |
+| `0.3.0` | `0.4.0` | All users on Python `3.10` | Upgrade Python to `3.11+` before updating. | Project support floor is planned to move to Python `3.11+`. |
 
 ## Migration Policy
 
@@ -26,5 +27,5 @@ breaking notify hook execution.
 ## Planned Next Release
 
 - Target release under active planning: `0.4.0`
-- Intended upgrade posture: `0.3.0 -> 0.4.0` should require no user action
-- Constraint: if the implementation changes interpreter policy, snapshot semantics, or Windows upgrade behavior, this document must be updated before release
+- Intended upgrade posture: `0.3.0 -> 0.4.0` requires Python `3.11+`
+- Constraint: if the implementation also changes snapshot semantics or Windows upgrade behavior, this document must be updated again before release

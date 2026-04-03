@@ -59,6 +59,8 @@ A proposal is ready for approval only when it includes:
 
 ## 8) Engineering Quality and Release Governance
 
+- Always work directly on `main`.
+- Never create, push, or use separate branches unless Daniel explicitly requests an exception for that specific task.
 - For every user-visible change, update `CHANGELOG.md` in the same PR/commit series.
 - For any release-related change, include a versioning plan (`next version` and intended tag, e.g. `v0.4.0`).
 - If a change can affect upgrade behavior, update `MIGRATIONS.md` with:
