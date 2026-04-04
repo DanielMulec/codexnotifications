@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import subprocess
@@ -8,8 +7,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Protocol, cast
 
-import tomllib
+from tests_support import TomlTable, get_toml_table, load_module_from_path, parse_toml_text
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = (
@@ -30,21 +30,30 @@ STATE_MODULE_PATH = (
 )
 
 
-def load_state_module():
-    spec = importlib.util.spec_from_file_location("notifications_state", STATE_MODULE_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Unable to load notifications_state module spec")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+class StateModuleProtocol(Protocol):
+    SKILL_NOTIFY_COMMAND: str
+
+
+def load_state_module() -> StateModuleProtocol:
+    return cast(
+        StateModuleProtocol,
+        load_module_from_path("notifications_state", STATE_MODULE_PATH),
+    )
 
 
 SKILL_NOTIFY_COMMAND = load_state_module().SKILL_NOTIFY_COMMAND
 
 
 def parse_json_stdout(raw_stdout: str) -> dict[str, str]:
-    payload = json.loads(raw_stdout.strip())
-    assert isinstance(payload, dict)
+    loaded = json.loads(raw_stdout.strip())
+    if not isinstance(loaded, dict):
+        raise AssertionError("Expected notifications_ctl stdout to be a JSON object")
+
+    payload: dict[str, str] = {}
+    for key, value in loaded.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise AssertionError("Expected notifications_ctl JSON payload to contain string fields")
+        payload[key] = value
     return payload
 
 
@@ -81,12 +90,12 @@ class NotificationsCtlTests(unittest.TestCase):
         payload = parse_json_stdout(completed.stdout)
         return completed.returncode, payload
 
-    def read_config(self) -> dict[str, object]:
+    def read_config(self) -> TomlTable:
         if not self.config_path.exists() or not self.config_path.read_text(
             encoding="utf-8"
         ).strip():
             return {}
-        return tomllib.loads(self.config_path.read_text(encoding="utf-8"))
+        return parse_toml_text(self.config_path.read_text(encoding="utf-8"))
 
     def test_command_parsing(self) -> None:
         return_code, payload = self.run_ctl("on")
@@ -114,12 +123,13 @@ class NotificationsCtlTests(unittest.TestCase):
         self.assertTrue(self.snapshot_path.exists())
 
         config = self.read_config()
+        tui = get_toml_table(config, "tui")
         self.assertEqual(
             config["notify"],
             [SKILL_NOTIFY_COMMAND, str(self.notify_script_path.resolve())],
         )
-        self.assertEqual(config["tui"]["notifications"], ["approval-requested"])
-        self.assertEqual(config["tui"]["notification_method"], "bel")
+        self.assertEqual(tui["notifications"], ["approval-requested"])
+        self.assertEqual(tui["notification_method"], "bel")
 
     def test_off_restores_prior_values(self) -> None:
         original_toml = (
@@ -130,7 +140,7 @@ class NotificationsCtlTests(unittest.TestCase):
             'notification_method = "auto"\n'
         )
         self.config_path.write_text(original_toml, encoding="utf-8")
-        expected_document = tomllib.loads(original_toml)
+        expected_document = parse_toml_text(original_toml)
 
         return_code, payload = self.run_ctl("on")
         self.assertEqual(return_code, 0)
@@ -223,7 +233,7 @@ class NotificationsCtlTests(unittest.TestCase):
             'notification_method = "auto"\n'
         )
         self.config_path.write_text(original_toml, encoding="utf-8")
-        expected_document = tomllib.loads(original_toml)
+        expected_document = parse_toml_text(original_toml)
 
         return_code, payload = self.run_ctl("on")
         self.assertEqual(return_code, 0)

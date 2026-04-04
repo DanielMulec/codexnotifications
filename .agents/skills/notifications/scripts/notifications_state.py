@@ -12,12 +12,41 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import (
+    Literal,
+    Protocol,
+    TypeAlias,
+    TypedDict,
+    TypeGuard,
+    runtime_checkable,
+)
 
 import tomlkit
 from tomlkit.toml_document import TOMLDocument
 
 SNAPSHOT_FILENAME = ".codex-notifications-v1-snapshot.json"
+
+SnapshotScalar: TypeAlias = str | int | float | bool | None
+SnapshotValue: TypeAlias = SnapshotScalar | list["SnapshotValue"] | dict[str, "SnapshotValue"]
+
+
+class KeyStatePresent(TypedDict):
+    present: Literal[True]
+    value: SnapshotValue
+
+
+class KeyStateAbsent(TypedDict):
+    present: Literal[False]
+
+
+KeyState: TypeAlias = KeyStatePresent | KeyStateAbsent
+PriorState: TypeAlias = dict[str, KeyState]
+
+
+@runtime_checkable
+class SupportsUnwrap(Protocol):
+    def unwrap(self) -> object:
+        ...
 
 
 def _resolve_skill_python_command() -> str:
@@ -192,11 +221,14 @@ def write_toml_document(path: Path, document: TOMLDocument) -> None:
     atomic_write_text(path, content)
 
 
-def _unwrap_value(value: Any) -> Any:
+def _unwrap_value(value: object) -> SnapshotValue:
     # Convert tomlkit container/item types into plain Python values so
     # equality checks and JSON snapshots are stable and predictable.
-    if hasattr(value, "unwrap"):
-        value = value.unwrap()
+    if isinstance(value, SupportsUnwrap):
+        return _unwrap_value(value.unwrap())
+
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
 
     if isinstance(value, dict):
         return {str(key): _unwrap_value(item) for key, item in value.items()}
@@ -204,10 +236,56 @@ def _unwrap_value(value: Any) -> Any:
     if isinstance(value, list):
         return [_unwrap_value(item) for item in value]
 
-    return value
+    raise TypeError(f"Unsupported snapshot value type: {type(value).__name__}")
 
 
-def key_state(value_present: bool, value: Any | None = None) -> dict[str, Any]:
+def _is_snapshot_value(value: object) -> TypeGuard[SnapshotValue]:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return True
+
+    if isinstance(value, list):
+        return all(_is_snapshot_value(item) for item in value)
+
+    if isinstance(value, dict):
+        return all(isinstance(key, str) and _is_snapshot_value(item) for key, item in value.items())
+
+    return False
+
+
+def _parse_key_state(value: object) -> KeyState | None:
+    if not isinstance(value, dict):
+        return None
+
+    present = value.get("present")
+    if present is False:
+        return {"present": False}
+
+    if present is not True or "value" not in value:
+        return None
+
+    raw_value = value["value"]
+    if not _is_snapshot_value(raw_value):
+        return None
+
+    return {"present": True, "value": copy.deepcopy(raw_value)}
+
+
+def _parse_prior_state(value: object) -> PriorState | None:
+    if not isinstance(value, dict):
+        return None
+
+    keys = ("notify", "tui.notifications", "tui.notification_method")
+    prior_state: PriorState = {}
+    for key in keys:
+        parsed_state = _parse_key_state(value.get(key))
+        if parsed_state is None:
+            return None
+        prior_state[key] = parsed_state
+
+    return prior_state
+
+
+def key_state(value_present: bool, value: object | None = None) -> KeyState:
     # Snapshot format stores both key presence and value to distinguish
     # "key absent" from "key present with false/empty value".
     if value_present:
@@ -216,10 +294,10 @@ def key_state(value_present: bool, value: Any | None = None) -> dict[str, Any]:
     return {"present": False}
 
 
-def capture_prior_state(document: TOMLDocument) -> dict[str, Any]:
+def capture_prior_state(document: TOMLDocument) -> PriorState:
     # Capture only keys this skill may mutate so restore is focused and safe.
     # This intentionally ignores unrelated config keys.
-    prior: dict[str, Any] = {}
+    prior: PriorState = {}
     prior["notify"] = key_state("notify" in document, document.get("notify"))
 
     tui = document.get("tui")
@@ -238,7 +316,7 @@ def capture_prior_state(document: TOMLDocument) -> dict[str, Any]:
 
 
 def write_snapshot(
-    snapshot_path: Path, config_path: Path, prior_state: dict[str, Any]
+    snapshot_path: Path, config_path: Path, prior_state: PriorState
 ) -> None:
     # Snapshot is JSON for easy debugging and compatibility with tooling.
     # Stored fields:
@@ -248,14 +326,14 @@ def write_snapshot(
     # - prior: captured values for restore
     payload = {
         "version": 1,
-        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "created_at": dt.datetime.now(dt.UTC).isoformat(),
         "config_path": str(config_path),
         "prior": prior_state,
     }
     atomic_write_text(snapshot_path, json.dumps(payload, indent=2, ensure_ascii=True) + "\n")
 
 
-def load_snapshot(snapshot_path: Path) -> tuple[dict[str, Any] | None, str | None]:
+def load_snapshot(snapshot_path: Path) -> tuple[PriorState | None, str | None]:
     # Returns:
     # - (prior_state, None) when valid
     # - (None, warning_message) when malformed/unreadable
@@ -279,8 +357,8 @@ def load_snapshot(snapshot_path: Path) -> tuple[dict[str, Any] | None, str | Non
         # Require object root to avoid ambiguous/unsafe payload handling.
         return None, "Snapshot format invalid: root is not an object"
 
-    prior = payload.get("prior")
-    if not isinstance(prior, dict):
+    prior = _parse_prior_state(payload.get("prior"))
+    if prior is None:
         # Restore code relies on a dict of key-state entries.
         return None, "Snapshot format invalid: missing 'prior' object"
 
@@ -302,7 +380,7 @@ def notify_target_value(notify_script_path: Path) -> list[str]:
     return [SKILL_NOTIFY_COMMAND, str(notify_script_path)]
 
 
-def is_skill_notify_value(value: Any, notify_script_path: Path) -> bool:
+def is_skill_notify_value(value: object | None, notify_script_path: Path) -> bool:
     # True only when notify points to this skill's exact hook command/path.
     unwrapped = _unwrap_value(value)
     if not isinstance(unwrapped, list) or len(unwrapped) != 2:
@@ -367,27 +445,27 @@ def apply_on_state(document: TOMLDocument, notify_script_path: Path) -> bool:
     return changed
 
 
-def restore_key(document: TOMLDocument, key: str, state: dict[str, Any] | None) -> None:
+def restore_key(document: TOMLDocument, key: str, state: KeyState | None) -> None:
     # Restore top-level key to previous value or remove if previously absent.
-    if state and state.get("present"):
+    if state is not None and state["present"]:
         # Recreate prior value exactly when key existed before.
-        document[key] = copy.deepcopy(state.get("value"))
+        document[key] = copy.deepcopy(state["value"])
     else:
         # Remove key when prior state says it was absent.
         document.pop(key, None)
 
 
 def restore_tui_key(
-    document: TOMLDocument, key: str, state: dict[str, Any] | None
+    document: TOMLDocument, key: str, state: KeyState | None
 ) -> None:
     # Same restore semantics as restore_key, but scoped to [tui] table.
     tui = document.get("tui")
-    if state and state.get("present"):
+    if state is not None and state["present"]:
         if not isinstance(tui, dict):
             # Recreate [tui] if prior state says key existed.
             tui = tomlkit.table()
             document["tui"] = tui
-        tui[key] = copy.deepcopy(state.get("value"))
+        tui[key] = copy.deepcopy(state["value"])
         return
 
     if isinstance(tui, dict):
@@ -397,7 +475,7 @@ def restore_tui_key(
             document.pop("tui", None)
 
 
-def apply_snapshot_restore(document: TOMLDocument, prior_state: dict[str, Any]) -> bool:
+def apply_snapshot_restore(document: TOMLDocument, prior_state: PriorState) -> bool:
     # Serialize before/after so callers can keep a strict idempotency contract.
     # We compare full document text because multiple nested key operations happen
     # and a single boolean from each helper is harder to compose safely.

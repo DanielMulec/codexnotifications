@@ -9,8 +9,9 @@ import os
 import platform
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Protocol, TypeAlias, cast
 
 SUPPORTED_EVENT = "agent-turn-complete"
 WINDOWS_MEDIA_FILENAMES = (
@@ -25,6 +26,22 @@ WINDOWS_BEEP_PATTERN = (
     (1047, 160),
 )
 _LAST_BACKEND = "none"
+PayloadDict: TypeAlias = dict[str, object]
+
+
+class WinsoundModule(Protocol):
+    SND_FILENAME: int
+    SND_ALIAS: int
+    MB_ICONASTERISK: int
+
+    def PlaySound(self, sound: str, flags: int) -> None:
+        ...
+
+    def Beep(self, frequency: int, duration: int) -> None:
+        ...
+
+    def MessageBeep(self, type: int = ...) -> None:
+        ...
 
 
 def set_last_backend(backend: str) -> None:
@@ -69,7 +86,7 @@ def log_debug_event(event: str, **fields: object) -> None:
     # - never writes to stdout
     # - includes timestamp and process id for correlation
     payload: dict[str, object] = {
-        "ts": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "ts": dt.datetime.now(dt.UTC).isoformat(),
         "event": event,
         "pid": os.getpid(),
     }
@@ -137,12 +154,12 @@ def windows_candidate_wav_paths() -> list[Path]:
     return candidates
 
 
-def _load_winsound() -> Any | None:
+def _load_winsound() -> WinsoundModule | None:
     # `winsound` exists on Windows only; load lazily for cross-platform execution.
     try:
         import importlib
 
-        return importlib.import_module("winsound")
+        return cast(WinsoundModule, importlib.import_module("winsound"))
     except ImportError:
         return None
 
@@ -266,24 +283,31 @@ def try_play_sound() -> bool:
     return True
 
 
-def parse_payload(raw_payload: str) -> dict[str, object] | None:
+def parse_payload(raw_payload: str) -> PayloadDict | None:
     # Hook input is expected to be one JSON object argument.
     # Return None for invalid payloads so caller can no-op safely.
     try:
         # Payload is passed as one JSON string argument by Codex hook runtime.
-        payload = json.loads(raw_payload)
+        loaded = json.loads(raw_payload)
     except json.JSONDecodeError:
         log_error("invalid JSON payload")
         return None
 
-    if not isinstance(payload, dict):
+    if not isinstance(loaded, dict):
         log_error("payload is not an object")
         return None
+
+    payload: PayloadDict = {}
+    for key, value in loaded.items():
+        if not isinstance(key, str):
+            log_error("payload is not an object")
+            return None
+        payload[key] = value
 
     return payload
 
 
-def event_type(payload: dict[str, object]) -> str | None:
+def event_type(payload: Mapping[str, object]) -> str | None:
     # Support both current "type" and legacy "event" field names.
     event_value = payload.get("type")
     if isinstance(event_value, str):

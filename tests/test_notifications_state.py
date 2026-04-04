@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-import importlib.util
 import unittest
 from pathlib import Path
+from typing import ClassVar, Protocol, cast
 from unittest import mock
 
 import tomlkit
-import tomllib
+from tomlkit.toml_document import TOMLDocument
+
+from tests_support import TomlTable, get_toml_table, load_module_from_path, parse_toml_text
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = (
@@ -19,23 +21,54 @@ MODULE_PATH = (
 )
 
 
-def load_module():
-    spec = importlib.util.spec_from_file_location("notifications_state", MODULE_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Unable to load notifications_state module spec")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+class NotificationsStateModule(Protocol):
+    SKILL_NOTIFY_COMMAND: str
+    sys: object
+    shutil: object
+
+    def _resolve_skill_python_command(self) -> str:
+        ...
+
+    def is_skill_notify_value(self, value: object | None, notify_script_path: Path) -> bool:
+        ...
+
+    def apply_on_state(self, document: TOMLDocument, notify_script_path: Path) -> bool:
+        ...
+
+    def is_target_on(self, document: TOMLDocument, notify_script_path: Path) -> bool:
+        ...
+
+    def apply_snapshot_restore(
+        self, document: TOMLDocument, prior_state: dict[str, object]
+    ) -> bool:
+        ...
+
+    def apply_safe_off_without_snapshot(
+        self, document: TOMLDocument, notify_script_path: Path
+    ) -> bool:
+        ...
+
+    def capture_prior_state(self, document: TOMLDocument) -> dict[str, object]:
+        ...
 
 
-def document_to_dict(document) -> dict[str, object]:
+def load_module() -> NotificationsStateModule:
+    return cast(
+        NotificationsStateModule,
+        load_module_from_path("notifications_state", MODULE_PATH),
+    )
+
+
+def document_to_dict(document: TOMLDocument) -> TomlTable:
     raw = tomlkit.dumps(document)
     if not raw.strip():
         return {}
-    return tomllib.loads(raw)
+    return parse_toml_text(raw)
 
 
 class NotificationsStateTests(unittest.TestCase):
+    mod: ClassVar[NotificationsStateModule]
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.mod = load_module()
@@ -84,8 +117,9 @@ class NotificationsStateTests(unittest.TestCase):
         parsed = document_to_dict(document)
         self.assertEqual(parsed["model"], "gpt-5")
         self.assertEqual(parsed["notify"], ["python3", "/tmp/original_notify.py"])
-        self.assertEqual(parsed["tui"]["notifications"], True)
-        self.assertEqual(parsed["tui"]["notification_method"], "auto")
+        tui = get_toml_table(parsed, "tui")
+        self.assertEqual(tui["notifications"], True)
+        self.assertEqual(tui["notification_method"], "auto")
 
     def test_apply_safe_off_without_snapshot_is_idempotent(self) -> None:
         notify_path = Path("/tmp/notify_event.py").resolve()
@@ -107,8 +141,9 @@ class NotificationsStateTests(unittest.TestCase):
         parsed = document_to_dict(document)
         self.assertEqual(parsed["model"], "gpt-5")
         self.assertNotIn("notify", parsed)
-        self.assertEqual(parsed["tui"]["notifications"], False)
-        self.assertEqual(parsed["tui"]["notification_method"], "bel")
+        tui = get_toml_table(parsed, "tui")
+        self.assertEqual(tui["notifications"], False)
+        self.assertEqual(tui["notification_method"], "bel")
 
     def test_capture_prior_state_returns_plain_python_values(self) -> None:
         document = tomlkit.parse(

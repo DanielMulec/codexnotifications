@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import tempfile
 import unittest
+from collections.abc import Callable, Mapping
 from pathlib import Path
+from typing import ClassVar, Protocol, cast
 from unittest import mock
+
+from tests_support import load_module_from_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = (
@@ -19,16 +22,33 @@ MODULE_PATH = (
 )
 
 
-def load_module():
-    spec = importlib.util.spec_from_file_location("notify_event", MODULE_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Unable to load notify_event module spec")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+class NotifyEventModule(Protocol):
+    platform: object
+    play_windows_wav_file: object
+    play_windows_beep_chime: object
+    play_windows_powershell_chime: object
+    try_play_sound: Callable[[], bool]
+
+    def event_type(self, payload: Mapping[str, object]) -> str | None:
+        ...
+
+    def is_supported_event(self, event_name: str | None) -> bool:
+        ...
+
+    def main(self, argv: list[str] | None = None) -> int:
+        ...
+
+    def get_last_backend(self) -> str:
+        ...
+
+
+def load_module() -> NotifyEventModule:
+    return cast(NotifyEventModule, load_module_from_path("notify_event", MODULE_PATH))
 
 
 class NotifyEventTests(unittest.TestCase):
+    mod: ClassVar[NotifyEventModule]
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.mod = load_module()
@@ -59,7 +79,20 @@ class NotifyEventTests(unittest.TestCase):
         if not self.log_path.exists():
             return []
         lines = self.log_path.read_text(encoding="utf-8").splitlines()
-        return [json.loads(line) for line in lines if line.strip()]
+        events: list[dict[str, object]] = []
+        for line in lines:
+            if not line.strip():
+                continue
+            loaded = json.loads(line)
+            if not isinstance(loaded, dict):
+                raise AssertionError("Expected notify hook log lines to be JSON objects")
+            event: dict[str, object] = {}
+            for key, value in loaded.items():
+                if not isinstance(key, str):
+                    raise AssertionError("Expected notify hook log keys to be strings")
+                event[key] = value
+            events.append(event)
+        return events
 
     def test_event_type_prefers_type(self) -> None:
         payload = {
@@ -88,14 +121,10 @@ class NotifyEventTests(unittest.TestCase):
             calls.append("played")
             return True
 
-        original = self.mod.try_play_sound
-        self.mod.try_play_sound = fake_try_play_sound
-        try:
+        with mock.patch.object(self.mod, "try_play_sound", new=fake_try_play_sound):
             exit_code = self.mod.main(
                 ["notify_event.py", json.dumps({"type": "agent-turn-complete"})]
             )
-        finally:
-            self.mod.try_play_sound = original
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(calls, ["played"])
@@ -107,12 +136,8 @@ class NotifyEventTests(unittest.TestCase):
             calls.append("played")
             return True
 
-        original = self.mod.try_play_sound
-        self.mod.try_play_sound = fake_try_play_sound
-        try:
+        with mock.patch.object(self.mod, "try_play_sound", new=fake_try_play_sound):
             exit_code = self.mod.main(["notify_event.py", json.dumps({"type": "other"})])
-        finally:
-            self.mod.try_play_sound = original
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(calls, [])

@@ -6,6 +6,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from tomlkit.toml_document import TOMLDocument
 
 USAGE_TEXT = "Usage: $notifications on|off"
 ALLOWED_COMMANDS = {"on", "off"}
@@ -17,6 +22,14 @@ STATUS_INVALID_INPUT = "invalid-input"
 STATUS_FAILED = "failed"
 
 _STATE_IMPORT_ERROR: Exception | None = None
+
+
+class ParsedArgs(argparse.Namespace):
+    command: str | None
+    config: str | None
+    snapshot: str | None
+    notify_script: str | None
+    help: bool
 
 # Import state helpers once at module load so command execution can fail fast
 # with a clear dependency message if `tomlkit` or the module is unavailable.
@@ -105,7 +118,12 @@ def result_from_exception(
     return failed_result(action, f"{failed_reason_prefix}: {exc}")
 
 
-def execute_on(document, config_path, snapshot_path, notify_script_path) -> dict[str, str]:
+def execute_on(
+    document: TOMLDocument,
+    config_path: Path,
+    snapshot_path: Path,
+    notify_script_path: Path,
+) -> dict[str, str]:
     # "on" flow:
     # 1) short-circuit if already in target state
     # 2) snapshot previous user values
@@ -153,10 +171,10 @@ def execute_on(document, config_path, snapshot_path, notify_script_path) -> dict
 
 
 def execute_off(
-    document,
-    config_path,
-    snapshot_path,
-    notify_script_path,
+    document: TOMLDocument,
+    config_path: Path,
+    snapshot_path: Path,
+    notify_script_path: Path,
 ) -> dict[str, str]:
     # "off" flow prefers exact restore from snapshot.
     # If snapshot is missing/broken, use a safe fallback that only removes
@@ -286,7 +304,7 @@ def execute_command(
     return execute_off(document, config_path, snapshot_path, notify_script_path)
 
 
-def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
+def parse_args(argv: list[str]) -> tuple[ParsedArgs, list[str]]:
     # Keep parsing permissive so main() can return structured JSON errors
     # instead of argparse's default raw stderr/exit behavior.
     parser = argparse.ArgumentParser(add_help=False)
@@ -297,7 +315,8 @@ def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument("--snapshot")
     parser.add_argument("--notify-script")
     parser.add_argument("-h", "--help", action="store_true")
-    return parser.parse_known_args(argv)
+    parsed_args, extras = parser.parse_known_args(argv, namespace=ParsedArgs())
+    return parsed_args, extras
 
 
 def exit_code_for_status(status: str) -> int:
