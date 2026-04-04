@@ -22,6 +22,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Improved cross-platform typing for Windows sound backends in `notify_event.py`.
 - Clarified that the current `mypy` gate only covers the bundled skill scripts and that repo-wide strict typing is planned work, not completed work.
 - Added the repository workflow rule that all work stays on `main` unless Daniel explicitly requests an exception.
+- Expanded the refactor plan with explicit manual-testing cadence, checklist, and backend-specific validation notes.
 
 ### Upgrade Notes
 - Planned next implementation release will require Python `3.11+`.

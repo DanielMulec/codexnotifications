@@ -83,6 +83,16 @@ Verification:
 - `python3 -m unittest discover -s tests -v`
 - one manual smoke pass per OS
 
+Manual testing at this phase:
+
+- run one baseline smoke pass on macOS, Linux, and Windows before the first runtime code edit
+- capture the exact observed behavior for:
+  - `$notifications on`
+  - `$notifications off`
+  - idempotency (`on/on`, `off/off`)
+  - sound backend selection and fallback
+  - snapshot creation and cleanup
+
 ### Phase 1: Align the Project to Python 3.11+
 
 Goal:
@@ -149,6 +159,15 @@ Exit criteria:
 Verification:
 
 - `python3 -m mypy .agents/skills/notifications/scripts --check-untyped-defs --disallow-untyped-defs --disallow-incomplete-defs --disallow-any-explicit --disallow-any-generics --disallow-any-expr --disallow-any-decorated --warn-return-any`
+
+Manual testing at this phase:
+
+- after any meaningful runtime edit in:
+  - `.agents/skills/notifications/scripts/notifications_ctl.py`
+  - `.agents/skills/notifications/scripts/notifications_state.py`
+  - `.agents/skills/notifications/scripts/notify_event.py`
+- run a targeted smoke test on the affected OS immediately
+- when Phase 3 is complete, run a full macOS/Linux/Windows smoke pass before moving on
 
 ### Phase 4: Refactor the Test Harness
 
@@ -222,6 +241,80 @@ Platform-specific focus:
 Verification artifact:
 
 - keep a short manual test log per OS in the implementation PR description or release notes draft
+
+## Manual Testing Cadence
+
+Run manual testing at these points:
+
+1. Phase 0 baseline
+   Run one smoke pass on macOS, Linux, and Windows before the first runtime refactor edit.
+
+2. After any shipped runtime behavior change
+   If a change touches `notifications_ctl.py`, `notifications_state.py`, or `notify_event.py`, run a targeted smoke test immediately on the affected OS.
+
+3. End of Phase 3
+   Once production typing/refactor work is complete, run a full three-OS smoke pass before spending time polishing the test harness.
+
+4. End of Phase 5 / start of Phase 6
+   Run the full release-candidate manual validation matrix on macOS, Linux, and Windows.
+
+5. Immediately before release
+   Re-run the final release-candidate manual checks if any runtime commit lands after the prior full manual pass.
+
+## Manual Testing Checklist
+
+Use this checklist for the Phase 0 baseline and the final release-candidate pass.
+
+### Shared setup
+
+- use Python `3.11+`
+- use a disposable `CODEX_HOME`
+- test both:
+  - clean skill install
+  - upgrade path from the currently released skill
+
+### Shared functional checks
+
+- run `$notifications on`
+- verify `config.toml` contains the expected:
+  - `notify`
+  - `tui.notifications`
+  - `tui.notification_method`
+- verify the snapshot file is created
+- trigger a supported event through `notify_event.py`
+- confirm audible output or intended fallback
+- run `$notifications off`
+- verify prior values restore correctly, or safe fallback applies correctly when no valid snapshot exists
+- verify the snapshot file is removed after restore
+- run `on` twice and `off` twice to confirm idempotency
+- verify invalid payloads do not break the hook process
+- verify command JSON and exit behavior remain stable
+
+### Platform-specific checks
+
+The platform checks below are derived from the current runtime implementation in `.agents/skills/notifications/scripts/notify_event.py` and should be updated if backend order changes.
+
+- macOS:
+  - verify `afplay` first
+  - verify `osascript -e beep` fallback
+  - verify terminal bell fallback if both prior backends are unavailable
+
+- Linux:
+  - verify `paplay` first
+  - verify `canberra-gtk-play` fallback
+  - verify terminal bell fallback if prior backends are unavailable
+
+- Windows:
+  - verify WAV playback through `winsound.PlaySound(..., SND_FILENAME)`
+  - verify deterministic `winsound.Beep(...)` chime fallback
+  - verify PowerShell console-beep fallback
+  - verify alias fallback through `winsound.PlaySound(..., SND_ALIAS)` and `winsound.MessageBeep(...)`
+  - verify interpreter-path stability after upgrade
+
+### What manual testing is not for
+
+- malformed snapshot and blocked-write edge cases should stay primarily automated unless a refactor directly changes that logic
+- manual testing should focus on user-visible runtime behavior, upgrade behavior, and OS-specific backend behavior
 
 ### Phase 7: Release and Upgrade Review
 
