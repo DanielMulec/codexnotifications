@@ -261,6 +261,54 @@ Run manual testing at these points:
 5. Immediately before release
    Re-run the final release-candidate manual checks if any runtime commit lands after the prior full manual pass.
 
+## Current Runtime Follow-Up
+
+### 2026-04-05 macOS smoke finding
+
+A targeted manual smoke pass on macOS against the installed skill found that the
+normal supported-event path selected `osascript -e beep` instead of the
+documented primary backend `afplay`.
+
+Observed behavior:
+
+- `afplay /System/Library/Sounds/Glass.aiff` was present and exited successfully
+- on this host it took about `3.4s` wall-clock to complete
+- the current `run_command(...)` helper in `notify_event.py` uses
+  `timeout=2`, so the `afplay` attempt is treated as a failure and the hook
+  falls through to `osascript`
+
+Chosen remediation proposal:
+
+- keep backend order unchanged on macOS: `afplay`, then `osascript`, then
+  terminal bell fallback
+- replace the single hard-coded command timeout in `notify_event.py` with
+  backend-specific timeouts
+- give `afplay` a larger timeout budget while keeping the other command paths
+  tight so Linux and Windows failure latency does not increase unnecessarily
+- add macOS regression coverage in `tests/test_notify_event.py` for:
+  - primary-path selection
+  - `osascript` fallback selection
+  - terminal bell fallback selection
+
+Why this proposal is preferred:
+
+- raising the timeout globally would broaden latency risk across non-macOS
+  backends
+- reordering macOS to prefer `osascript` first would change the intended product
+  behavior instead of fixing the regression
+- async fire-and-forget `afplay` handling is possible, but it adds more process
+  lifecycle complexity than this case needs
+
+Verification for the fix:
+
+- run `ruff check .`
+- run `mypy`
+- run `python3 -m unittest discover -s tests -v`
+- rerun the targeted macOS smoke flow with a disposable `CODEX_HOME`
+- confirm the normal supported-event path now reports `darwin:afplay`
+- confirm forced fallback still reports `darwin:osascript-beep`
+- confirm double-failure still reports `terminal-bell`
+
 ## Manual Testing Checklist
 
 Use this checklist for the Phase 0 baseline and the final release-candidate pass.
