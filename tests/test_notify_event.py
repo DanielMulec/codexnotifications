@@ -22,12 +22,30 @@ MODULE_PATH = (
 )
 
 
+class StdoutProtocol(Protocol):
+    def write(self, text: str) -> int:
+        ...
+
+    def flush(self) -> None:
+        ...
+
+
+class SysProtocol(Protocol):
+    stdout: StdoutProtocol
+
+
 class NotifyEventModule(Protocol):
     platform: object
+    sys: SysProtocol
     play_windows_wav_file: object
     play_windows_beep_chime: object
     play_windows_powershell_chime: object
     try_play_sound: Callable[[], bool]
+
+    def run_command(
+        self, command: list[str], timeout_seconds: float = ...
+    ) -> bool:
+        ...
 
     def event_type(self, payload: Mapping[str, object]) -> str | None:
         ...
@@ -141,6 +159,76 @@ class NotifyEventTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(calls, [])
+
+    def test_try_play_sound_macos_prefers_afplay_with_extended_timeout(self) -> None:
+        calls: list[tuple[list[str], float]] = []
+
+        def fake_run_command(command: list[str], timeout_seconds: float = 2.0) -> bool:
+            calls.append((command, timeout_seconds))
+            return command[0] == "afplay"
+
+        with (
+            mock.patch.object(self.mod.platform, "system", return_value="Darwin"),
+            mock.patch.object(self.mod, "run_command", new=fake_run_command),
+        ):
+            success = self.mod.try_play_sound()
+
+        self.assertTrue(success)
+        self.assertEqual(self.mod.get_last_backend(), "darwin:afplay")
+        self.assertEqual(
+            calls,
+            [(["afplay", "/System/Library/Sounds/Glass.aiff"], 5.0)],
+        )
+
+    def test_try_play_sound_macos_falls_back_to_osascript(self) -> None:
+        calls: list[tuple[list[str], float]] = []
+
+        def fake_run_command(command: list[str], timeout_seconds: float = 2.0) -> bool:
+            calls.append((command, timeout_seconds))
+            return command[0] == "osascript"
+
+        with (
+            mock.patch.object(self.mod.platform, "system", return_value="Darwin"),
+            mock.patch.object(self.mod, "run_command", new=fake_run_command),
+        ):
+            success = self.mod.try_play_sound()
+
+        self.assertTrue(success)
+        self.assertEqual(self.mod.get_last_backend(), "darwin:osascript-beep")
+        self.assertEqual(
+            calls,
+            [
+                (["afplay", "/System/Library/Sounds/Glass.aiff"], 5.0),
+                (["osascript", "-e", "beep"], 2.0),
+            ],
+        )
+
+    def test_try_play_sound_macos_falls_back_to_terminal_bell(self) -> None:
+        calls: list[tuple[list[str], float]] = []
+
+        def fake_run_command(command: list[str], timeout_seconds: float = 2.0) -> bool:
+            calls.append((command, timeout_seconds))
+            return False
+
+        with (
+            mock.patch.object(self.mod.platform, "system", return_value="Darwin"),
+            mock.patch.object(self.mod, "run_command", new=fake_run_command),
+            mock.patch.object(self.mod.sys.stdout, "write", return_value=1) as write_mock,
+            mock.patch.object(self.mod.sys.stdout, "flush") as flush_mock,
+        ):
+            success = self.mod.try_play_sound()
+
+        self.assertTrue(success)
+        self.assertEqual(self.mod.get_last_backend(), "terminal-bell")
+        self.assertEqual(
+            calls,
+            [
+                (["afplay", "/System/Library/Sounds/Glass.aiff"], 5.0),
+                (["osascript", "-e", "beep"], 2.0),
+            ],
+        )
+        write_mock.assert_called_once_with("\a")
+        flush_mock.assert_called_once_with()
 
     def test_try_play_sound_windows_prefers_first_successful_backend(self) -> None:
         with (

@@ -12,8 +12,9 @@ breaking notify hook execution.
 |---|---|---|---|---|
 | `0.1.0` | `0.2.0` | All | None | No persistent schema break introduced. |
 | `0.2.0` | `0.3.0` | Windows | Run `$notifications on` once after update. | Rewrites `notify` command to a stable interpreter path for Windows. |
-| `0.3.0` | `Unreleased` | All | None | Current unreleased state documents the upcoming refactor plan only; runtime contract is still unchanged. |
+| `0.3.0` | `Unreleased` | All | None | Current unreleased state includes in-progress refactor work and a macOS backend timing fix; treat the `0.4.0` rows below as the release-target upgrade guidance. |
 | `0.3.0` | `0.4.0` | All users on Python `3.10` | Upgrade Python to `3.11+` before updating. | Project support floor is planned to move to Python `3.11+`. |
+| `0.3.0` | `0.4.0` | macOS | None | Restores `afplay` as the intended primary backend by giving it a backend-specific timeout budget. |
 
 ## Migration Policy
 

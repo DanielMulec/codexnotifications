@@ -27,11 +27,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   - moved Ruff and Mypy to a Python `3.11` baseline
   - widened Mypy scope from the skill scripts into tests and typed test helpers
   - removed explicit `Any` from production notification scripts
+- Restored the intended macOS notify-hook primary backend path by giving `afplay` a backend-specific timeout budget instead of forcing an early fallback to `osascript`.
+- Added macOS regression coverage for `afplay`, `osascript`, and terminal bell backend selection in `notify_event.py`.
 
 ### Upgrade Notes
 - Planned next implementation release will require Python `3.11+`.
 - Users still on Python `3.10` will need to upgrade their interpreter before adopting that release.
-- Current unreleased state is still documentation and planning only.
+- macOS users do not need to rerun `$notifications on`; after updating, supported events should use `afplay` first again when it is available and healthy.
 
 ### Versioning Plan
 - Next intended implementation release: `0.4.0`

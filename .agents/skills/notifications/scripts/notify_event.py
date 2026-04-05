@@ -25,6 +25,8 @@ WINDOWS_BEEP_PATTERN = (
     (988, 120),
     (1047, 160),
 )
+DEFAULT_COMMAND_TIMEOUT_SECONDS = 2.0
+MACOS_AFPLAY_TIMEOUT_SECONDS = 5.0
 _LAST_BACKEND = "none"
 PayloadDict: TypeAlias = dict[str, object]
 
@@ -113,7 +115,9 @@ def log_error(message: str) -> None:
     print(f"notify_event: {message}", file=sys.stderr)
 
 
-def run_command(command: list[str]) -> bool:
+def run_command(
+    command: list[str], timeout_seconds: float = DEFAULT_COMMAND_TIMEOUT_SECONDS
+) -> bool:
     # Run a backend command quietly and treat non-zero/exception as failure.
     # Timeouts keep notification hooks from stalling the main CLI flow.
     try:
@@ -122,7 +126,7 @@ def run_command(command: list[str]) -> bool:
             check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            timeout=2,
+            timeout=timeout_seconds,
         )
     except OSError:
         # Command/binary missing or not executable.
@@ -239,7 +243,12 @@ def try_play_sound() -> bool:
 
     if system == "darwin":
         # macOS: prefer afplay, then AppleScript beep fallback.
-        if run_command(["afplay", "/System/Library/Sounds/Glass.aiff"]):
+        # afplay blocks for the playback duration, so it needs a larger timeout
+        # budget than the other command backends.
+        if run_command(
+            ["afplay", "/System/Library/Sounds/Glass.aiff"],
+            timeout_seconds=MACOS_AFPLAY_TIMEOUT_SECONDS,
+        ):
             set_last_backend("darwin:afplay")
             return True
         if run_command(["osascript", "-e", "beep"]):
