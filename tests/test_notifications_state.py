@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
-from typing import ClassVar, Protocol, cast
+from typing import ClassVar, Literal, Protocol, TypeAlias, TypedDict, cast
 from unittest import mock
 
 import tomlkit
@@ -39,7 +39,7 @@ class NotificationsStateModule(Protocol):
         ...
 
     def apply_snapshot_restore(
-        self, document: TOMLDocument, prior_state: dict[str, object]
+        self, document: TOMLDocument, prior_state: PriorState
     ) -> bool:
         ...
 
@@ -48,8 +48,21 @@ class NotificationsStateModule(Protocol):
     ) -> bool:
         ...
 
-    def capture_prior_state(self, document: TOMLDocument) -> dict[str, object]:
+    def capture_prior_state(self, document: TOMLDocument) -> PriorState:
         ...
+
+
+class KeyStatePresent(TypedDict):
+    present: Literal[True]
+    value: object
+
+
+class KeyStateAbsent(TypedDict):
+    present: Literal[False]
+
+
+KeyState: TypeAlias = KeyStatePresent | KeyStateAbsent
+PriorState: TypeAlias = dict[str, KeyState]
 
 
 def load_module() -> NotificationsStateModule:
@@ -79,8 +92,9 @@ class NotificationsStateTests(unittest.TestCase):
         document = tomlkit.parse(
             f'notify = ["{notify_command}", "{notify_path}"]\n'
         )
+        root = cast(dict[str, object], document)
 
-        self.assertTrue(self.mod.is_skill_notify_value(document.get("notify"), notify_path))
+        self.assertTrue(self.mod.is_skill_notify_value(root.get("notify"), notify_path))
 
     def test_apply_on_state_is_idempotent_after_first_apply(self) -> None:
         notify_path = Path("/tmp/notify_event.py").resolve()
@@ -105,7 +119,7 @@ class NotificationsStateTests(unittest.TestCase):
             'notifications = ["approval-requested"]\n'
             'notification_method = "bel"\n'
         )
-        prior_state = {
+        prior_state: PriorState = {
             "notify": {"present": True, "value": ["python3", "/tmp/original_notify.py"]},
             "tui.notifications": {"present": True, "value": True},
             "tui.notification_method": {"present": True, "value": "auto"},
@@ -116,7 +130,8 @@ class NotificationsStateTests(unittest.TestCase):
         self.assertTrue(changed)
         parsed = document_to_dict(document)
         self.assertEqual(parsed["model"], "gpt-5")
-        self.assertEqual(parsed["notify"], ["python3", "/tmp/original_notify.py"])
+        expected_notify: list[str] = ["python3", "/tmp/original_notify.py"]
+        self.assertEqual(parsed["notify"], expected_notify)
         tui = get_toml_table(parsed, "tui")
         self.assertEqual(tui["notifications"], True)
         self.assertEqual(tui["notification_method"], "auto")
@@ -154,19 +169,23 @@ class NotificationsStateTests(unittest.TestCase):
         )
 
         prior_state = self.mod.capture_prior_state(document)
+        expected_notify: list[str] = ["python3", "/tmp/original_notify.py"]
+        expected_notifications: list[str] = ["approval-requested"]
 
-        self.assertEqual(
-            prior_state["notify"],
-            {"present": True, "value": ["python3", "/tmp/original_notify.py"]},
-        )
-        self.assertEqual(
-            prior_state["tui.notifications"],
-            {"present": True, "value": ["approval-requested"]},
-        )
-        self.assertEqual(
-            prior_state["tui.notification_method"],
-            {"present": True, "value": "bel"},
-        )
+        notify_state = prior_state["notify"]
+        if notify_state["present"] is not True:
+            self.fail("Expected prior_state['notify'] to be present")
+        self.assertEqual(notify_state["value"], expected_notify)
+
+        notifications_state = prior_state["tui.notifications"]
+        if notifications_state["present"] is not True:
+            self.fail("Expected prior_state['tui.notifications'] to be present")
+        self.assertEqual(notifications_state["value"], expected_notifications)
+
+        notification_method_state = prior_state["tui.notification_method"]
+        if notification_method_state["present"] is not True:
+            self.fail("Expected prior_state['tui.notification_method'] to be present")
+        self.assertEqual(notification_method_state["value"], "bel")
 
     def test_resolve_skill_python_command_windows_prefers_sys_executable(self) -> None:
         with (

@@ -45,7 +45,7 @@ SKILL_NOTIFY_COMMAND = load_state_module().SKILL_NOTIFY_COMMAND
 
 
 def parse_json_stdout(raw_stdout: str) -> dict[str, str]:
-    loaded = json.loads(raw_stdout.strip())
+    loaded = cast(object, json.loads(raw_stdout.strip()))
     if not isinstance(loaded, dict):
         raise AssertionError("Expected notifications_ctl stdout to be a JSON object")
 
@@ -124,11 +124,16 @@ class NotificationsCtlTests(unittest.TestCase):
 
         config = self.read_config()
         tui = get_toml_table(config, "tui")
+        expected_notify: list[str] = [
+            SKILL_NOTIFY_COMMAND,
+            str(self.notify_script_path.resolve()),
+        ]
+        expected_notifications: list[str] = ["approval-requested"]
         self.assertEqual(
             config["notify"],
-            [SKILL_NOTIFY_COMMAND, str(self.notify_script_path.resolve())],
+            expected_notify,
         )
-        self.assertEqual(tui["notifications"], ["approval-requested"])
+        self.assertEqual(tui["notifications"], expected_notifications)
         self.assertEqual(tui["notification_method"], "bel")
 
     def test_off_restores_prior_values(self) -> None:

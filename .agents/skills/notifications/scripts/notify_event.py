@@ -297,7 +297,7 @@ def parse_payload(raw_payload: str) -> PayloadDict | None:
     # Return None for invalid payloads so caller can no-op safely.
     try:
         # Payload is passed as one JSON string argument by Codex hook runtime.
-        loaded = json.loads(raw_payload)
+        loaded = cast(object, json.loads(raw_payload))
     except json.JSONDecodeError:
         log_error("invalid JSON payload")
         return None

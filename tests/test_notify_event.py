@@ -101,7 +101,7 @@ class NotifyEventTests(unittest.TestCase):
         for line in lines:
             if not line.strip():
                 continue
-            loaded = json.loads(line)
+            loaded = cast(object, json.loads(line))
             if not isinstance(loaded, dict):
                 raise AssertionError("Expected notify hook log lines to be JSON objects")
             event: dict[str, object] = {}
@@ -134,31 +134,33 @@ class NotifyEventTests(unittest.TestCase):
 
     def test_main_accepts_type_payload(self) -> None:
         calls: list[str] = []
+        payload: dict[str, str] = {"type": "agent-turn-complete"}
 
         def fake_try_play_sound() -> bool:
             calls.append("played")
             return True
 
         with mock.patch.object(self.mod, "try_play_sound", new=fake_try_play_sound):
-            exit_code = self.mod.main(
-                ["notify_event.py", json.dumps({"type": "agent-turn-complete"})]
-            )
+            exit_code = self.mod.main(["notify_event.py", json.dumps(payload)])
 
         self.assertEqual(exit_code, 0)
-        self.assertEqual(calls, ["played"])
+        expected_calls: list[str] = ["played"]
+        self.assertEqual(calls, expected_calls)
 
     def test_main_ignores_unknown_type(self) -> None:
         calls: list[str] = []
+        payload: dict[str, str] = {"type": "other"}
 
         def fake_try_play_sound() -> bool:
             calls.append("played")
             return True
 
         with mock.patch.object(self.mod, "try_play_sound", new=fake_try_play_sound):
-            exit_code = self.mod.main(["notify_event.py", json.dumps({"type": "other"})])
+            exit_code = self.mod.main(["notify_event.py", json.dumps(payload)])
 
         self.assertEqual(exit_code, 0)
-        self.assertEqual(calls, [])
+        expected_calls: list[str] = []
+        self.assertEqual(calls, expected_calls)
 
     def test_try_play_sound_macos_prefers_afplay_with_extended_timeout(self) -> None:
         calls: list[tuple[list[str], float]] = []
@@ -175,9 +177,12 @@ class NotifyEventTests(unittest.TestCase):
 
         self.assertTrue(success)
         self.assertEqual(self.mod.get_last_backend(), "darwin:afplay")
+        expected_calls: list[tuple[list[str], float]] = [
+            (["afplay", "/System/Library/Sounds/Glass.aiff"], 5.0)
+        ]
         self.assertEqual(
             calls,
-            [(["afplay", "/System/Library/Sounds/Glass.aiff"], 5.0)],
+            expected_calls,
         )
 
     def test_try_play_sound_macos_falls_back_to_osascript(self) -> None:
@@ -195,12 +200,13 @@ class NotifyEventTests(unittest.TestCase):
 
         self.assertTrue(success)
         self.assertEqual(self.mod.get_last_backend(), "darwin:osascript-beep")
+        expected_calls: list[tuple[list[str], float]] = [
+            (["afplay", "/System/Library/Sounds/Glass.aiff"], 5.0),
+            (["osascript", "-e", "beep"], 2.0),
+        ]
         self.assertEqual(
             calls,
-            [
-                (["afplay", "/System/Library/Sounds/Glass.aiff"], 5.0),
-                (["osascript", "-e", "beep"], 2.0),
-            ],
+            expected_calls,
         )
 
     def test_try_play_sound_macos_falls_back_to_terminal_bell(self) -> None:
@@ -220,12 +226,13 @@ class NotifyEventTests(unittest.TestCase):
 
         self.assertTrue(success)
         self.assertEqual(self.mod.get_last_backend(), "terminal-bell")
+        expected_calls: list[tuple[list[str], float]] = [
+            (["afplay", "/System/Library/Sounds/Glass.aiff"], 5.0),
+            (["osascript", "-e", "beep"], 2.0),
+        ]
         self.assertEqual(
             calls,
-            [
-                (["afplay", "/System/Library/Sounds/Glass.aiff"], 5.0),
-                (["osascript", "-e", "beep"], 2.0),
-            ],
+            expected_calls,
         )
         write_mock.assert_called_once_with("\a")
         flush_mock.assert_called_once_with()

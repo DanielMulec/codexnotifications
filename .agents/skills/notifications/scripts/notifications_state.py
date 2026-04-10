@@ -18,6 +18,7 @@ from typing import (
     TypeAlias,
     TypedDict,
     TypeGuard,
+    cast,
     runtime_checkable,
 )
 
@@ -47,6 +48,18 @@ PriorState: TypeAlias = dict[str, KeyState]
 class SupportsUnwrap(Protocol):
     def unwrap(self) -> object:
         ...
+
+
+def _document_view(document: TOMLDocument) -> dict[str, object]:
+    # Cast once at the TOML boundary so downstream reads stay object-typed.
+    return cast(dict[str, object], document)
+
+
+def _table_view(value: object) -> dict[str, object] | None:
+    # Narrow nested table values to typed dict views when present.
+    if not isinstance(value, dict):
+        return None
+    return cast(dict[str, object], value)
 
 
 def _resolve_skill_python_command() -> str:
@@ -298,10 +311,11 @@ def capture_prior_state(document: TOMLDocument) -> PriorState:
     # Capture only keys this skill may mutate so restore is focused and safe.
     # This intentionally ignores unrelated config keys.
     prior: PriorState = {}
-    prior["notify"] = key_state("notify" in document, document.get("notify"))
+    root = _document_view(document)
+    prior["notify"] = key_state("notify" in root, root.get("notify"))
 
-    tui = document.get("tui")
-    if isinstance(tui, dict):
+    tui = _table_view(root.get("tui"))
+    if tui is not None:
         prior["tui.notifications"] = key_state(
             "notifications" in tui, tui.get("notifications")
         )
@@ -349,7 +363,7 @@ def load_snapshot(snapshot_path: Path) -> tuple[PriorState | None, str | None]:
         return None, f"Snapshot read failed: {exc}"
 
     try:
-        payload = json.loads(raw)
+        payload = cast(object, json.loads(raw))
     except json.JSONDecodeError as exc:
         return None, f"Snapshot format invalid: {exc}"
 
@@ -357,7 +371,8 @@ def load_snapshot(snapshot_path: Path) -> tuple[PriorState | None, str | None]:
         # Require object root to avoid ambiguous/unsafe payload handling.
         return None, "Snapshot format invalid: root is not an object"
 
-    prior = _parse_prior_state(payload.get("prior"))
+    payload_obj = cast(dict[str, object], payload)
+    prior = _parse_prior_state(payload_obj.get("prior"))
     if prior is None:
         # Restore code relies on a dict of key-state entries.
         return None, "Snapshot format invalid: missing 'prior' object"
@@ -400,9 +415,10 @@ def is_skill_notify_value(value: object | None, notify_script_path: Path) -> boo
 def is_target_on(document: TOMLDocument, notify_script_path: Path) -> bool:
     # Detect full "on" state across all controlled keys.
     # All managed keys must match, not just one key.
-    notify_ok = is_skill_notify_value(document.get("notify"), notify_script_path)
-    tui = document.get("tui")
-    if not isinstance(tui, dict):
+    root = _document_view(document)
+    notify_ok = is_skill_notify_value(root.get("notify"), notify_script_path)
+    tui = _table_view(root.get("tui"))
+    if tui is None:
         return False
 
     return (
@@ -418,17 +434,19 @@ def apply_on_state(document: TOMLDocument, notify_script_path: Path) -> bool:
     # Returns True when at least one key changed.
     changed = False
 
+    root = _document_view(document)
     target_notify = notify_target_value(notify_script_path)
-    if _unwrap_value(document.get("notify")) != target_notify:
+    if _unwrap_value(root.get("notify")) != target_notify:
         # Update notify command to point to this skill's hook script.
         document["notify"] = target_notify
         changed = True
 
-    tui = document.get("tui")
-    if not isinstance(tui, dict):
+    tui = _table_view(root.get("tui"))
+    if tui is None:
         # Create [tui] section only when needed.
-        tui = tomlkit.table()
-        document["tui"] = tui
+        new_tui = tomlkit.table()
+        document["tui"] = new_tui
+        tui = cast(dict[str, object], new_tui)
         changed = True
 
     target_notifications = list(TARGET_TUI_NOTIFICATIONS)
@@ -459,16 +477,18 @@ def restore_tui_key(
     document: TOMLDocument, key: str, state: KeyState | None
 ) -> None:
     # Same restore semantics as restore_key, but scoped to [tui] table.
-    tui = document.get("tui")
+    root = _document_view(document)
+    tui = _table_view(root.get("tui"))
     if state is not None and state["present"]:
-        if not isinstance(tui, dict):
+        if tui is None:
             # Recreate [tui] if prior state says key existed.
-            tui = tomlkit.table()
-            document["tui"] = tui
+            new_tui = tomlkit.table()
+            document["tui"] = new_tui
+            tui = cast(dict[str, object], new_tui)
         tui[key] = copy.deepcopy(state["value"])
         return
 
-    if isinstance(tui, dict):
+    if tui is not None:
         tui.pop(key, None)
         if not tui:
             # Remove empty [tui] table to keep config tidy.
@@ -501,15 +521,16 @@ def apply_safe_off_without_snapshot(
     # unrelated custom user settings.
     changed = False
 
-    notify_value = document.get("notify")
+    root = _document_view(document)
+    notify_value = root.get("notify")
     skill_notify = is_skill_notify_value(notify_value, notify_script_path)
     if skill_notify:
         # Remove notify hook only if it matches this skill's exact command.
         document.pop("notify", None)
         changed = True
 
-    tui = document.get("tui")
-    if isinstance(tui, dict):
+    tui = _table_view(root.get("tui"))
+    if tui is not None:
         notifications = _unwrap_value(tui.get("notifications"))
         notification_method = _unwrap_value(tui.get("notification_method"))
         skill_approval_override = (

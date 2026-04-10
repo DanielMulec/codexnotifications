@@ -20,7 +20,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Changed
 - Updated notification scripts and tests formatting/import order to satisfy Ruff.
 - Improved cross-platform typing for Windows sound backends in `notify_event.py`.
-- Clarified that the current `mypy` gate only covers the bundled skill scripts and that repo-wide strict typing is planned work, not completed work.
+- Tightened the active `mypy` gate to also reject implicit `Any` flows via:
+  - `disallow_any_generics`
+  - `disallow_any_expr`
+  - `disallow_any_decorated`
+- Refactored JSON/TOML parse boundaries and typed test assertions/helpers so the stricter implicit-`Any` gate passes across scripts and tests.
 - Added the repository workflow rule that all work stays on `main` unless Daniel explicitly requests an exception.
 - Expanded the refactor plan with explicit manual-testing cadence, checklist, and backend-specific validation notes.
 - Started the refactor implementation:

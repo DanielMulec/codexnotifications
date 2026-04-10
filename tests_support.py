@@ -4,7 +4,7 @@ import importlib.util
 import tomllib
 from pathlib import Path
 from types import ModuleType
-from typing import TypeAlias
+from typing import TypeAlias, cast
 
 TomlScalar: TypeAlias = str | int | float | bool | None
 TomlValue: TypeAlias = TomlScalar | list["TomlValue"] | dict[str, "TomlValue"]
@@ -40,7 +40,7 @@ def _coerce_toml_value(value: object) -> TomlValue:
 
 
 def parse_toml_text(text: str) -> TomlTable:
-    loaded = tomllib.loads(text)
+    loaded = cast(object, tomllib.loads(text))
     if not isinstance(loaded, dict):
         raise TypeError("Expected TOML root to be a table")
     coerced = _coerce_toml_value(loaded)
