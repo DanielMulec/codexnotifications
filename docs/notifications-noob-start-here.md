@@ -8,13 +8,13 @@ It is written for early-stage Python/Codex users without assuming prior familiar
 
 The behavior is implemented by four files:
 
-1. `.agents/skills/notifications/scripts/notify_event.py`  
+1. `skill-src/notifications/scripts/notify_event.py`  
    Small runtime hook that plays sound for completion events.
 2. `tests/test_notifications_ctl.py` and `tests/test_notifications_state.py`  
    Concrete examples of expected behavior (`on`, `off`, idempotency, blocked write, restore).
-3. `.agents/skills/notifications/scripts/notifications_state.py`  
+3. `skill-src/notifications/scripts/notifications_state.py`  
    Config/state logic (TOML load/write, snapshot capture/restore, mutation rules).
-4. `.agents/skills/notifications/scripts/notifications_ctl.py`  
+4. `skill-src/notifications/scripts/notifications_ctl.py`  
    CLI orchestration (argument parsing, status mapping, JSON output).
 
 Python dependency used by the state module:
@@ -225,11 +225,11 @@ notification_method = "auto"
 
 ## 7. Recommended Reading Order
 
-1. `.agents/skills/notifications/scripts/notify_event.py`  
+1. `skill-src/notifications/scripts/notify_event.py`  
    Shortest file; easiest entry point.
 2. `tests/test_notifications_ctl.py` and `tests/test_notifications_state.py`  
    Behavior examples first.
-3. `.agents/skills/notifications/scripts/notifications_state.py`  
+3. `skill-src/notifications/scripts/notifications_state.py`  
    Core mutation logic.
-4. `.agents/skills/notifications/scripts/notifications_ctl.py`  
+4. `skill-src/notifications/scripts/notifications_ctl.py`  
    CLI wrapper around the core logic.

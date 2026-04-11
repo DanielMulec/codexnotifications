@@ -35,10 +35,10 @@ When disabled, it restores prior values from snapshot when available, or applies
 
 Core files:
 
-- `.agents/skills/notifications/SKILL.md`
-- `.agents/skills/notifications/scripts/notifications_ctl.py`
-- `.agents/skills/notifications/scripts/notifications_state.py`
-- `.agents/skills/notifications/scripts/notify_event.py`
+- `skill-src/notifications/SKILL.md`
+- `skill-src/notifications/scripts/notifications_ctl.py`
+- `skill-src/notifications/scripts/notifications_state.py`
+- `skill-src/notifications/scripts/notify_event.py`
 
 ## Requirements
 
@@ -71,14 +71,14 @@ py -m pip install --user tomlkit
 Inside Codex, install from:
 
 - repo: `DanielMulec/codexnotifications`
-- path: `.agents/skills/notifications`
+- path: `skill-src/notifications`
 
 Then restart Codex CLI.
 
 ### Option B: Manual copy
 
 1. Clone this repository.
-2. Copy `.agents/skills/notifications` to `${CODEX_HOME:-$HOME/.codex}/skills/notifications`.
+2. Copy `skill-src/notifications` to `${CODEX_HOME:-$HOME/.codex}/skills/notifications`.
 3. Restart Codex CLI.
 
 ## Quick Start

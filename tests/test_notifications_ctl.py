@@ -14,16 +14,14 @@ from tests_support import TomlTable, get_toml_table, load_module_from_path, pars
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = (
     REPO_ROOT
-    / ".agents"
-    / "skills"
+    / "skill-src"
     / "notifications"
     / "scripts"
     / "notifications_ctl.py"
 )
 STATE_MODULE_PATH = (
     REPO_ROOT
-    / ".agents"
-    / "skills"
+    / "skill-src"
     / "notifications"
     / "scripts"
     / "notifications_state.py"

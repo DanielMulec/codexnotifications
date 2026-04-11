@@ -8,9 +8,9 @@ User-installed skills are typically placed under:
 
 - `${CODEX_HOME:-$HOME/.codex}/skills/<skill-name>`
 
-Project-local development fallback used by this repository:
+Repository source path used for packaging/install:
 
-- `.agents/skills/notifications`
+- `skill-src/notifications`
 
 ## 2. Install the Skill
 
@@ -19,7 +19,7 @@ Project-local development fallback used by this repository:
 Inside Codex, ask the installer skill to install from this repo path:
 
 - repo: `DanielMulec/codexnotifications`
-- path: `.agents/skills/notifications`
+- path: `skill-src/notifications`
 
 Then restart Codex CLI.
 
@@ -27,7 +27,7 @@ Then restart Codex CLI.
 
 1. Copy this folder into your Codex user skills directory as `notifications`:
 
-- source: `.agents/skills/notifications`
+- source: `skill-src/notifications`
 - destination: `${CODEX_HOME:-$HOME/.codex}/skills/notifications`
 
 2. Restart Codex CLI.

@@ -34,7 +34,7 @@ Implementation consequence:
 ## Current Problems To Address
 
 1. Static analysis scope is too narrow.
-   Today `mypy` only gates `.agents/skills/notifications/scripts`, so test typing debt is hidden.
+   Today `mypy` only gates `skill-src/notifications/scripts`, so test typing debt is hidden.
 
 2. Production code contains explicit `Any` roots.
    `notifications_state.py` and `notify_event.py` use `Any` in places that taint large portions of control flow.
@@ -158,14 +158,14 @@ Exit criteria:
 
 Verification:
 
-- `python3 -m mypy .agents/skills/notifications/scripts --check-untyped-defs --disallow-untyped-defs --disallow-incomplete-defs --disallow-any-explicit --disallow-any-generics --disallow-any-expr --disallow-any-decorated --warn-return-any`
+- `python3 -m mypy skill-src/notifications/scripts --check-untyped-defs --disallow-untyped-defs --disallow-incomplete-defs --disallow-any-explicit --disallow-any-generics --disallow-any-expr --disallow-any-decorated --warn-return-any`
 
 Manual testing at this phase:
 
 - after any meaningful runtime edit in:
-  - `.agents/skills/notifications/scripts/notifications_ctl.py`
-  - `.agents/skills/notifications/scripts/notifications_state.py`
-  - `.agents/skills/notifications/scripts/notify_event.py`
+  - `skill-src/notifications/scripts/notifications_ctl.py`
+  - `skill-src/notifications/scripts/notifications_state.py`
+  - `skill-src/notifications/scripts/notify_event.py`
 - run a targeted smoke test on the affected OS immediately
 - when Phase 3 is complete, run a full macOS/Linux/Windows smoke pass before moving on
 
@@ -340,7 +340,7 @@ Use this checklist for the Phase 0 baseline and the final release-candidate pass
 
 ### Platform-specific checks
 
-The platform checks below are derived from the current runtime implementation in `.agents/skills/notifications/scripts/notify_event.py` and should be updated if backend order changes.
+The platform checks below are derived from the current runtime implementation in `skill-src/notifications/scripts/notify_event.py` and should be updated if backend order changes.
 
 - macOS:
   - verify `afplay` first

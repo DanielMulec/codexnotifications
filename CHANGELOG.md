@@ -37,11 +37,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   - removed explicit `Any` from production notification scripts
 - Restored the intended macOS notify-hook primary backend path by giving `afplay` a backend-specific timeout budget instead of forcing an early fallback to `osascript`.
 - Added macOS regression coverage for `afplay`, `osascript`, and terminal bell backend selection in `notify_event.py`.
+- Migrated repository skill source from `.agents/skills/notifications` to `skill-src/notifications` to avoid dual repo-local/global detection in Codex CLI/App.
+- Updated skill execution contract to use only the installed global script path and removed repository-local runtime fallback.
 
 ### Upgrade Notes
 - Planned next implementation release will require Python `3.11+`.
 - Users still on Python `3.10` will need to upgrade their interpreter before adopting that release.
 - macOS users do not need to rerun `$notifications on`; after updating, supported events should use `afplay` first again when it is available and healthy.
+- Users installing directly from this repository should use source path `skill-src/notifications` (instead of `.agents/skills/notifications`).
 
 ### Versioning Plan
 - Next intended implementation release: `0.4.0`

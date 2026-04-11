@@ -14,8 +14,7 @@ from tests_support import load_module_from_path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = (
     REPO_ROOT
-    / ".agents"
-    / "skills"
+    / "skill-src"
     / "notifications"
     / "scripts"
     / "notify_event.py"

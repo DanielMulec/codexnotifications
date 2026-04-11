@@ -37,9 +37,6 @@ For rejected forms, return invalid usage:
 
 ```bash
 SCRIPT_PATH="${CODEX_HOME:-$HOME/.codex}/skills/notifications/scripts/notifications_ctl.py"
-if [ ! -f "$SCRIPT_PATH" ] && [ -f ".agents/skills/notifications/scripts/notifications_ctl.py" ]; then
-  SCRIPT_PATH=".agents/skills/notifications/scripts/notifications_ctl.py"
-fi
 PYTHON_CMD="$(command -v python3 || command -v python || command -v py)"
 if [ -z "$PYTHON_CMD" ]; then
   echo "No Python interpreter found (tried python3, python, py)."
