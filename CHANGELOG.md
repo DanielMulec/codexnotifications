@@ -20,6 +20,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Added a no-surprises migration proposal to move the repository skill source out of `.agents/skills/...` to avoid dual repo-local/global detection in Codex environments.
 
 ### Changed
+- Simplified `docs/implementation-plan-2026-04-11.md` to a current-state execution runbook and removed historical evidence replay sections.
 - Revised `docs/implementation-plan-2026-04-11.md` with post-Bundle-A rerun evidence:
   - marked safe-off clobber issue as closed across macOS/Linux/Windows reruns
   - promoted Windows gate failures (`mypy` unreachable branch and Windows test portability/blocked-write determinism) into active P1 hardening scope
