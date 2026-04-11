@@ -16,6 +16,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   - staged type-safety and maintainability plan
   - cross-platform verification matrix for macOS, Linux, and Windows
   - explicit Python-version policy decision to standardize on `3.11+`
+- Added a detailed, evidence-linked implementation runbook for post-validation fixes in `docs/implementation-plan-2026-04-11.md`.
 
 ### Changed
 - Updated notification scripts and tests formatting/import order to satisfy Ruff.
