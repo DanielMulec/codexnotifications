@@ -537,9 +537,11 @@ def apply_safe_off_without_snapshot(
             notifications == list(TARGET_TUI_NOTIFICATIONS)
             and notification_method == TARGET_TUI_NOTIFICATION_METHOD
         )
-        # Without a snapshot, only disable the exact skill override and leave custom values alone.
-        # We also skip writing if notifications is already False to preserve idempotency.
-        if (skill_notify or skill_approval_override) and notifications is not False:
+        # Without a snapshot, disable notifications only when the exact skill
+        # approval override is still present. If notify still points to the
+        # skill but TUI values are custom, leave custom values untouched.
+        # We also skip writing when notifications is already False.
+        if skill_approval_override and notifications is not False:
             tui["notifications"] = False
             changed = True
 

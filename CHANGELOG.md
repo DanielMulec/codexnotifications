@@ -26,6 +26,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   - `disallow_any_expr`
   - `disallow_any_decorated`
 - Refactored JSON/TOML parse boundaries and typed test assertions/helpers so the stricter implicit-`Any` gate passes across scripts and tests.
+- Updated fallback `off` behavior (no snapshot case) to preserve custom TUI notification settings unless the exact skill TUI override is still present.
+- Aligned notifications skill execution contract to resolve Python interpreter via `python3`/`python`/`py` fallback instead of hard-coding `python3`.
 - Added the repository workflow rule that all work stays on `main` unless Daniel explicitly requests an exception.
 - Expanded the refactor plan with explicit manual-testing cadence, checklist, and backend-specific validation notes.
 - Started the refactor implementation:

@@ -40,7 +40,12 @@ SCRIPT_PATH="${CODEX_HOME:-$HOME/.codex}/skills/notifications/scripts/notificati
 if [ ! -f "$SCRIPT_PATH" ] && [ -f ".agents/skills/notifications/scripts/notifications_ctl.py" ]; then
   SCRIPT_PATH=".agents/skills/notifications/scripts/notifications_ctl.py"
 fi
-python3 "$SCRIPT_PATH" <on_or_off>
+PYTHON_CMD="$(command -v python3 || command -v python || command -v py)"
+if [ -z "$PYTHON_CMD" ]; then
+  echo "No Python interpreter found (tried python3, python, py)."
+  exit 1
+fi
+"$PYTHON_CMD" "$SCRIPT_PATH" <on_or_off>
 ```
 
 ## Response Mapping (Natural Language)
@@ -82,4 +87,4 @@ For `status = failed`:
 
 - The control script handles config mutation, snapshot/restore, idempotency, and blocked-write messaging.
 - Do not perform manual config edits if the control script succeeds.
-- Runtime prerequisite: `tomlkit` must be installed for the Python interpreter that runs the skill script (`python3 -m pip install --user tomlkit`).
+- Runtime prerequisite: `tomlkit` must be installed for the Python interpreter that runs the skill script (for example `python3`, `python`, or `py` depending on host setup).
