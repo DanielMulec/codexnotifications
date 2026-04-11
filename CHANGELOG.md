@@ -17,6 +17,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   - cross-platform verification matrix for macOS, Linux, and Windows
   - explicit Python-version policy decision to standardize on `3.11+`
 - Added a detailed, evidence-linked implementation runbook for post-validation fixes in `docs/implementation-plan-2026-04-11.md`.
+- Added a no-surprises migration proposal to move the repository skill source out of `.agents/skills/...` to avoid dual repo-local/global detection in Codex environments.
 
 ### Changed
 - Updated notification scripts and tests formatting/import order to satisfy Ruff.
