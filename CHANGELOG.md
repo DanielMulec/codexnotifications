@@ -20,6 +20,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Added a no-surprises migration proposal to move the repository skill source out of `.agents/skills/...` to avoid dual repo-local/global detection in Codex environments.
 
 ### Changed
+- Revised `docs/implementation-plan-2026-04-11.md` with post-Bundle-A rerun evidence:
+  - marked safe-off clobber issue as closed across macOS/Linux/Windows reruns
+  - promoted Windows gate failures (`mypy` unreachable branch and Windows test portability/blocked-write determinism) into active P1 hardening scope
+  - added macOS repo-context detection-gap item as a tracked, evidence-backed issue pending clean-room recheck
+  - updated execution order to a single Windows hardening bundle before the next full matrix checkpoint
 - Updated notification scripts and tests formatting/import order to satisfy Ruff.
 - Improved cross-platform typing for Windows sound backends in `notify_event.py`.
 - Tightened the active `mypy` gate to also reject implicit `Any` flows via:
