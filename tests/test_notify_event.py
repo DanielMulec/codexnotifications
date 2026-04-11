@@ -36,14 +36,17 @@ class SysProtocol(Protocol):
 class NotifyEventModule(Protocol):
     platform: object
     sys: SysProtocol
+    WINDOWS_POWERSHELL_CHIME_TIMEOUT_SECONDS: float
     play_windows_wav_file: object
     play_windows_beep_chime: object
-    play_windows_powershell_chime: object
     try_play_sound: Callable[[], bool]
 
     def run_command(
         self, command: list[str], timeout_seconds: float = ...
     ) -> bool:
+        ...
+
+    def play_windows_powershell_chime(self) -> tuple[bool, str]:
         ...
 
     def event_type(self, payload: Mapping[str, object]) -> str | None:
@@ -261,6 +264,23 @@ class NotifyEventTests(unittest.TestCase):
         self.assertEqual(self.mod.get_last_backend(), "windows:winsound.Beep(chime)")
         self.assertTrue(beep_mock.called)
         self.assertFalse(ps_mock.called)
+
+    def test_play_windows_powershell_chime_uses_extended_timeout(self) -> None:
+        script = (
+            "[console]::beep(880,120); Start-Sleep -Milliseconds 40; "
+            "[console]::beep(988,120); Start-Sleep -Milliseconds 40; "
+            "[console]::beep(1047,160)"
+        )
+        expected_command: list[str] = ["powershell", "-NoProfile", "-Command", script]
+        with mock.patch.object(self.mod, "run_command", return_value=True) as run_mock:
+            ok, backend = self.mod.play_windows_powershell_chime()
+
+        self.assertTrue(ok)
+        self.assertEqual(backend, "windows:powershell.console-beep")
+        run_mock.assert_called_once_with(
+            expected_command,
+            timeout_seconds=self.mod.WINDOWS_POWERSHELL_CHIME_TIMEOUT_SECONDS,
+        )
 
     def test_main_invalid_json_logs_invalid_payload_event(self) -> None:
         exit_code = self.mod.main(["notify_event.py", "{bad json"])

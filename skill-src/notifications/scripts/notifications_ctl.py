@@ -270,12 +270,14 @@ def execute_command(
     # If state helpers failed to import earlier, return a deterministic JSON
     # failure instead of raising during command handling.
     if _STATE_IMPORT_ERROR is not None:
+        interpreter_hint = sys.executable or "python"
         return failed_result(
             action,
             "State module dependency initialization failed: "
             + (
                 f"{_STATE_IMPORT_ERROR}. "
-                "Install runtime dependency with 'python3 -m pip install tomlkit'."
+                "Install runtime dependency with "
+                f"'{interpreter_hint} -m pip install tomlkit'."
             ),
         )
 

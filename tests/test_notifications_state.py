@@ -88,9 +88,9 @@ class NotificationsStateTests(unittest.TestCase):
     def test_is_skill_notify_value_accepts_toml_array(self) -> None:
         notify_path = Path("/tmp/notify_event.py").resolve()
         notify_command = self.mod.SKILL_NOTIFY_COMMAND
-        document = tomlkit.parse(
-            f'notify = ["{notify_command}", "{notify_path}"]\n'
-        )
+        notify_value: list[str] = [notify_command, str(notify_path)]
+        document = tomlkit.document()
+        document["notify"] = notify_value
         root = cast(dict[str, object], document)
 
         self.assertTrue(self.mod.is_skill_notify_value(root.get("notify"), notify_path))
@@ -138,13 +138,15 @@ class NotificationsStateTests(unittest.TestCase):
     def test_apply_safe_off_without_snapshot_is_idempotent(self) -> None:
         notify_path = Path("/tmp/notify_event.py").resolve()
         notify_command = self.mod.SKILL_NOTIFY_COMMAND
-        document = tomlkit.parse(
-            'model = "gpt-5"\n'
-            f'notify = ["{notify_command}", "{notify_path}"]\n\n'
-            "[tui]\n"
-            'notifications = ["approval-requested"]\n'
-            'notification_method = "bel"\n'
-        )
+        notify_value: list[str] = [notify_command, str(notify_path)]
+        notifications_value: list[str] = ["approval-requested"]
+        document = tomlkit.document()
+        document["model"] = "gpt-5"
+        document["notify"] = notify_value
+        tui = tomlkit.table()
+        tui["notifications"] = notifications_value
+        tui["notification_method"] = "bel"
+        document["tui"] = tui
 
         first_changed = self.mod.apply_safe_off_without_snapshot(document, notify_path)
         second_changed = self.mod.apply_safe_off_without_snapshot(document, notify_path)
@@ -155,20 +157,21 @@ class NotificationsStateTests(unittest.TestCase):
         parsed = document_to_dict(document)
         self.assertEqual(parsed["model"], "gpt-5")
         self.assertNotIn("notify", parsed)
-        tui = get_toml_table(parsed, "tui")
-        self.assertEqual(tui["notifications"], False)
-        self.assertEqual(tui["notification_method"], "bel")
+        parsed_tui = get_toml_table(parsed, "tui")
+        self.assertEqual(parsed_tui["notifications"], False)
+        self.assertEqual(parsed_tui["notification_method"], "bel")
 
     def test_apply_safe_off_without_snapshot_preserves_custom_tui_values(self) -> None:
         notify_path = Path("/tmp/notify_event.py").resolve()
         notify_command = self.mod.SKILL_NOTIFY_COMMAND
-        document = tomlkit.parse(
-            'model = "gpt-5"\n'
-            f'notify = ["{notify_command}", "{notify_path}"]\n\n'
-            "[tui]\n"
-            "notifications = true\n"
-            'notification_method = "auto"\n'
-        )
+        notify_value: list[str] = [notify_command, str(notify_path)]
+        document = tomlkit.document()
+        document["model"] = "gpt-5"
+        document["notify"] = notify_value
+        tui = tomlkit.table()
+        tui["notifications"] = True
+        tui["notification_method"] = "auto"
+        document["tui"] = tui
 
         changed = self.mod.apply_safe_off_without_snapshot(document, notify_path)
 
@@ -176,9 +179,9 @@ class NotificationsStateTests(unittest.TestCase):
         parsed = document_to_dict(document)
         self.assertEqual(parsed["model"], "gpt-5")
         self.assertNotIn("notify", parsed)
-        tui = get_toml_table(parsed, "tui")
-        self.assertEqual(tui["notifications"], True)
-        self.assertEqual(tui["notification_method"], "auto")
+        parsed_tui = get_toml_table(parsed, "tui")
+        self.assertEqual(parsed_tui["notifications"], True)
+        self.assertEqual(parsed_tui["notification_method"], "auto")
 
     def test_capture_prior_state_returns_plain_python_values(self) -> None:
         document = tomlkit.parse(

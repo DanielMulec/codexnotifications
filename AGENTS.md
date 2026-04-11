@@ -72,6 +72,7 @@ A proposal is ready for approval only when it includes:
 - Before commit, run and report:
   - `ruff check .`
   - `mypy`
-  - `python3 -m unittest discover -s tests -v`
+  - `python3 -m unittest discover -s tests -v` (macOS/Linux)
+  - `py -m unittest discover -s tests -v` (Windows, when `python3` alias is unavailable)
 - If behavior changes differ by OS (Windows/macOS/Linux), include explicit upgrade notes in `CHANGELOG.md`.
 - Keep commits clean: do not commit `__pycache__`, virtualenvs, temp artifacts, or unrelated files.

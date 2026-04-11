@@ -44,9 +44,9 @@ Core files:
 
 - Codex CLI (with skills support)
 - Python `3.11+`
-- Python package `tomlkit` in the same Python environment used by `python3`
+- Python package `tomlkit` in the same Python environment used to run the skill
 
-Install dependency:
+Install dependency (macOS/Linux):
 
 ```bash
 python3 -m pip install --user tomlkit
@@ -94,7 +94,8 @@ You can also verify the script directly:
 
 ```bash
 SCRIPT_PATH="${CODEX_HOME:-$HOME/.codex}/skills/notifications/scripts/notifications_ctl.py"
-python3 "$SCRIPT_PATH" --help
+PYTHON_CMD="$(command -v python3 || command -v python || command -v py)"
+"$PYTHON_CMD" "$SCRIPT_PATH" --help
 ```
 
 Expected JSON includes:
@@ -111,7 +112,7 @@ Expected JSON includes:
 - Write blocked / permission errors:
   allow writes to your global Codex config directory (`${CODEX_HOME:-$HOME/.codex}`) or rerun with the required policy/permissions.
 - `tomlkit` dependency error:
-  install `tomlkit` in the same interpreter used by `python3`.
+  install `tomlkit` in the same interpreter that runs the skill command (`python3`, `python`, or `py` depending on host).
 - Windows hook diagnostics (optional):
   set `CODEX_NOTIFY_LOG` to override hook log path and `CODEX_NOTIFY_WAV` to force a specific WAV file.
 
@@ -147,6 +148,12 @@ Run tests:
 
 ```bash
 python3 -m unittest discover -s tests -v
+```
+
+Windows PowerShell:
+
+```powershell
+py -m unittest discover -s tests -v
 ```
 
 Version history:

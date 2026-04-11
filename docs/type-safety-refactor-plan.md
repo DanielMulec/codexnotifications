@@ -80,7 +80,7 @@ Verification:
 
 - `ruff check .`
 - `mypy`
-- `python3 -m unittest discover -s tests -v`
+- `python3 -m unittest discover -s tests -v` (or `py -m unittest discover -s tests -v` on Windows when `python3` alias is unavailable)
 - one manual smoke pass per OS
 
 Manual testing at this phase:
@@ -303,7 +303,7 @@ Verification for the fix:
 
 - run `ruff check .`
 - run `mypy`
-- run `python3 -m unittest discover -s tests -v`
+- run `python3 -m unittest discover -s tests -v` (or `py -m unittest discover -s tests -v` on Windows when `python3` alias is unavailable)
 - rerun the targeted macOS smoke flow with a disposable `CODEX_HOME`
 - confirm the normal supported-event path now reports `darwin:afplay`
 - confirm forced fallback still reports `darwin:osascript-beep`
@@ -389,7 +389,7 @@ Release-policy rollback note:
 
 - `ruff check .`
 - `mypy`
-- `python3 -m unittest discover -s tests -v`
+- `python3 -m unittest discover -s tests -v` (or `py -m unittest discover -s tests -v` on Windows when `python3` alias is unavailable)
 
 Recommended `mypy` end state:
 

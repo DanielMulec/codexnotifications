@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import tempfile
@@ -37,7 +36,6 @@ def load_state_module() -> StateModuleProtocol:
         StateModuleProtocol,
         load_module_from_path("notifications_state", STATE_MODULE_PATH),
     )
-
 
 SKILL_NOTIFY_COMMAND = load_state_module().SKILL_NOTIFY_COMMAND
 
@@ -184,12 +182,11 @@ class NotificationsCtlTests(unittest.TestCase):
         self.assertEqual(payload["status"], "already-applied")
 
     def test_blocked_write_returns_guidance(self) -> None:
-        blocked_dir = Path(self.tempdir.name) / "blocked"
-        blocked_dir.mkdir(parents=True, exist_ok=True)
-        os.chmod(blocked_dir, 0o500)
-        self.addCleanup(os.chmod, blocked_dir, 0o700)
-
-        blocked_config_path = blocked_dir / "config.toml"
+        # Cross-platform deterministic blocked path:
+        # create a file where a parent directory is expected.
+        blocked_parent = Path(self.tempdir.name) / "blocked-parent-file"
+        blocked_parent.write_text("x", encoding="utf-8")
+        blocked_config_path = blocked_parent / "config.toml"
         return_code, payload = self.run_ctl("on", config_path=blocked_config_path)
 
         self.assertEqual(return_code, 3)

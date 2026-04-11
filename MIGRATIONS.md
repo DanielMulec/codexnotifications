@@ -16,6 +16,7 @@ breaking notify hook execution.
 | `0.3.0` | `0.4.0` | All users on Python `3.10` | Upgrade Python to `3.11+` before updating. | Project support floor is planned to move to Python `3.11+`. |
 | `0.3.0` | `0.4.0` | Users installing from repository path (macOS/Linux/Windows) | Update install source path to `skill-src/notifications`. | Repository skill source moved out of `.agents/skills/notifications` to prevent dual repo-local/global detection. |
 | `0.3.0` | `0.4.0` | macOS | None | Restores `afplay` as the intended primary backend by giving it a backend-specific timeout budget. |
+| `0.3.0` | `0.4.0` | Windows | None | PowerShell fallback timeout budget and Windows gate command guidance were hardened; no config/schema migration is required. |
 
 ## Migration Policy
 

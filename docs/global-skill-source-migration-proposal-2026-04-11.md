@@ -71,7 +71,7 @@ Move the repository skill source out of the auto-discovery path and keep global 
 2. Full required local quality gate:
 - `ruff check .`
 - `mypy`
-- `python3 -m unittest discover -s tests -v`
+- `python3 -m unittest discover -s tests -v` (or `py -m unittest discover -s tests -v` on Windows when `python3` alias is unavailable)
 3. Explicit CHANGELOG and MIGRATIONS updates for upgrade clarity.
 4. Cross-platform smoke validation against freshly installed global skill.
 
@@ -106,7 +106,7 @@ Functional:
 Static/automated:
 1. `ruff check .`
 2. `mypy`
-3. `python3 -m unittest discover -s tests -v`
+3. `python3 -m unittest discover -s tests -v` (or `py -m unittest discover -s tests -v` on Windows when `python3` alias is unavailable)
 
 Cross-platform:
 1. Repeat functional verification on macOS.

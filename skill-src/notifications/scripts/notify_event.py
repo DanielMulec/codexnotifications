@@ -27,6 +27,7 @@ WINDOWS_BEEP_PATTERN = (
 )
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 2.0
 MACOS_AFPLAY_TIMEOUT_SECONDS = 5.0
+WINDOWS_POWERSHELL_CHIME_TIMEOUT_SECONDS = 5.0
 _LAST_BACKEND = "none"
 PayloadDict: TypeAlias = dict[str, object]
 
@@ -209,7 +210,10 @@ def play_windows_powershell_chime() -> tuple[bool, str]:
         "[console]::beep(988,120); Start-Sleep -Milliseconds 40; "
         "[console]::beep(1047,160)"
     )
-    if run_command(["powershell", "-NoProfile", "-Command", script]):
+    if run_command(
+        ["powershell", "-NoProfile", "-Command", script],
+        timeout_seconds=WINDOWS_POWERSHELL_CHIME_TIMEOUT_SECONDS,
+    ):
         return True, "windows:powershell.console-beep"
     return False, "windows:powershell.console-beep-failed"
 

@@ -62,6 +62,12 @@ def _table_view(value: object) -> dict[str, object] | None:
     return cast(dict[str, object], value)
 
 
+def _is_windows_platform() -> bool:
+    # Wrapper avoids platform-literal reachability assumptions in static analysis
+    # while preserving runtime behavior.
+    return sys.platform == "win32"
+
+
 def _resolve_skill_python_command() -> str:
     # Resolve the interpreter command written into `notify = [cmd, script]`.
     #
@@ -73,7 +79,7 @@ def _resolve_skill_python_command() -> str:
     # Platform policy:
     # - Windows: prefer current interpreter, then `python`, then `py`.
     # - Non-Windows: preserve existing v1 behavior (`python3`).
-    if sys.platform == "win32":
+    if _is_windows_platform():
         if sys.executable:
             # When available, this is usually the most deterministic runtime.
             return str(Path(sys.executable).expanduser().resolve())

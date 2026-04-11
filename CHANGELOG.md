@@ -20,6 +20,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Added a no-surprises migration proposal to move the repository skill source out of `.agents/skills/...` to avoid dual repo-local/global detection in Codex environments.
 
 ### Changed
+- Hardened Windows typing/runtime validation:
+  - removed Windows-only `mypy` unreachable-branch failure in `notifications_state.py`
+  - made Windows-sensitive TOML fixture tests path-safe and deterministic across path separators
+  - replaced permission-mode blocked-write test with deterministic blocked-path simulation
+- Increased Windows PowerShell chime fallback timeout budget in `notify_event.py` so the backend can complete on slower hosts before falling through to terminal bell.
+- Standardized cross-platform gate/launcher documentation to use `py` on Windows when `python3` alias is unavailable.
+- Improved dependency-failure guidance in `notifications_ctl.py` to reference the active interpreter (`sys.executable`) instead of hard-coding `python3`.
 - Simplified `docs/implementation-plan-2026-04-11.md` to a current-state execution runbook and removed historical evidence replay sections.
 - Revised `docs/implementation-plan-2026-04-11.md` with post-Bundle-A rerun evidence:
   - marked safe-off clobber issue as closed across macOS/Linux/Windows reruns
@@ -51,6 +58,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Users still on Python `3.10` will need to upgrade their interpreter before adopting that release.
 - macOS users do not need to rerun `$notifications on`; after updating, supported events should use `afplay` first again when it is available and healthy.
 - Users installing directly from this repository should use source path `skill-src/notifications` (instead of `.agents/skills/notifications`).
+- Windows users do not need to rerun `$notifications on` for this bundle; changes are limited to fallback timing reliability, test/gate determinism, and command/documentation alignment.
+- On Windows hosts where `python3` alias is unavailable, use `py` for local gate/test commands.
 
 ### Versioning Plan
 - Next intended implementation release: `0.4.0`
